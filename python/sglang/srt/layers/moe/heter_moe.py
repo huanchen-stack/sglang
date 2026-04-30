@@ -35,7 +35,7 @@ import json
 import logging
 import os
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -61,7 +61,9 @@ def _parse_heter_config(config_path: str) -> Dict[str, Any]:
     # NOTE: ``group_size`` on INT4 groups is the GPTQ quantization group
     # size (e.g. 128 scales per K), unrelated to the precision groups.
     policy = cfg.get("policy", "expert_load")
-    if policy == "expert_batch":
+    # Policies that don't need static size_ratios (decide hot/cold at
+    # runtime from token counts / curve lookup).
+    if policy in ("expert_batch", "efficiency_promotion"):
         for g in groups:
             g.setdefault("size_ratio", 0.0)
     else:
@@ -301,7 +303,81 @@ class HeterFusedMoE(nn.Module):
         self._int4_is_k_full = True
         self._int4_group_size = 128
 
+        # Sparse-active autotune: load the (n_active, m_per_expert)-keyed
+        # tile dictionary produced by tune_bf16_sparse_sep.py. When set,
+        # forward() wraps the BF16 path in override_split_config(...) to
+        # pin per-direction tiles instead of the production E=128,N=768
+        # JSON (which only has integer-M keys and saturates at M=4096).
+        # See test/test_heter_moe/unittest/kernel_profile/results/x_star_curve.md.
+        self._sparse_tile_bse_keys: Optional[List[int]] = None
+        self._sparse_tile_by_bse: Optional[Dict[int, Tuple[Dict, Dict]]] = None
+        if heter_config.get("pin_autotuned_tiles", True):
+            sparse_path = heter_config.get(
+                "sparse_tile_path",
+                "test/test_heter_moe/unittest/kernel_profile/results/"
+                "bf16_sparse_configs_sep.json",
+            )
+            self._init_sparse_tile_lookup(sparse_path)
+
         self._init_group_weights()
+
+    def _init_sparse_tile_lookup(self, path: str) -> None:
+        """Parse the sparse-active autotune JSON and pre-extract the row
+        matching this layer's BF16 expert count (= self._num_bf16_experts).
+
+        The JSON is keyed by ``"n{n}_bse{bse}"``. We only need the row at
+        n = num_bf16_experts (constant per layer); per-call lookup then
+        only does nearest-neighbor in the bse axis.
+        """
+        if not os.path.exists(path):
+            # Silent fallback: if the kernel-profile artifact isn't present,
+            # the BF16 path uses the production JSON via try_get_optimal_moe_config.
+            return
+        with open(path) as f:
+            full = json.load(f)
+        # Group cells by n_active
+        by_n: Dict[int, Dict[int, Tuple[Dict, Dict]]] = {}
+        for k, v in full.items():
+            try:
+                n_str, bse_str = k.split("_")
+                n = int(n_str[1:])
+                bse = int(bse_str[3:])
+            except (ValueError, IndexError):
+                continue
+            if "up" not in v or "down" not in v:
+                continue
+            up_tile = {k_: v_ for k_, v_ in v["up"].items() if not k_.startswith("_")}
+            down_tile = {k_: v_ for k_, v_ in v["down"].items() if not k_.startswith("_")}
+            by_n.setdefault(n, {})[bse] = (up_tile, down_tile)
+        if not by_n:
+            return
+        n_keys = sorted(by_n.keys())
+        n_target = self._num_bf16_experts
+        n_match = min(n_keys, key=lambda nn: abs(nn - n_target))
+        self._sparse_tile_by_bse = by_n[n_match]
+        self._sparse_tile_bse_keys = sorted(self._sparse_tile_by_bse.keys())
+
+    def _lookup_sparse_tile(
+        self, m_per_expert: int
+    ) -> Optional[Tuple[Dict, Dict]]:
+        """Nearest-bse lookup in the precomputed row. None if no autotune
+        artifact is loaded.
+
+        Manual argmin loop instead of ``min(..., key=lambda)`` — dynamo
+        traces the forward path and rejects the ``key=`` kwarg form (see
+        EfficiencyPromotionPolicy._lookup_x_runtime for context).
+        """
+        if not self._sparse_tile_by_bse:
+            return None
+        keys = self._sparse_tile_bse_keys
+        best_idx = 0
+        best_dist = abs(keys[0] - m_per_expert)
+        for i in range(1, len(keys)):
+            d = abs(keys[i] - m_per_expert)
+            if d < best_dist:
+                best_dist = d
+                best_idx = i
+        return self._sparse_tile_by_bse[keys[best_idx]]
 
     def _init_group_weights(self) -> None:
         """Create weight containers for groups specified in the config.
@@ -797,13 +873,45 @@ class HeterFusedMoE(nn.Module):
                     safe_ids = group_ids.clamp(min=0)
                     remapped = self._bf16_id_remap[safe_ids]
                     group_ids = torch.where(group_ids >= 0, remapped, group_ids)
-                group_out = outplace_fused_experts(
-                    hidden_states,
-                    self.w13_weight,
-                    self.w2_weight,
-                    group_weights,
-                    group_ids,
-                )
+                # Pin autotuned tile if the kernel-profile artifact was loaded.
+                # m_per_expert is computed from host-known shapes only — no
+                # GPU→host sync (a .item() would break CUDA-graph capture
+                # since the kernel call below runs inside the captured graph).
+                # Approximation: under uniform routing each token's K slots
+                # spread across self._num_bf16_experts, so per-expert load is
+                # M_global * top_k / num_bf16_experts. Real Zipf concentrates
+                # on a subset, but the autotune is hierarchical-nearest in
+                # bse, so an order-of-magnitude approximation is sufficient.
+                tile_pair = None
+                if self._sparse_tile_by_bse is not None and self._num_bf16_experts > 0:
+                    M_global = hidden_states.shape[0]   # host-known
+                    top_k = group_ids.shape[1]          # host-known
+                    m_per_expert = max(
+                        1,
+                        (M_global * top_k) // self._num_bf16_experts,
+                    )
+                    tile_pair = self._lookup_sparse_tile(m_per_expert)
+                if tile_pair is not None:
+                    from sglang.srt.layers.moe.fused_moe_triton import (
+                        override_split_config,
+                    )
+                    up_tile, down_tile = tile_pair
+                    with override_split_config(up_tile, down_tile):
+                        group_out = outplace_fused_experts(
+                            hidden_states,
+                            self.w13_weight,
+                            self.w2_weight,
+                            group_weights,
+                            group_ids,
+                        )
+                else:
+                    group_out = outplace_fused_experts(
+                        hidden_states,
+                        self.w13_weight,
+                        self.w2_weight,
+                        group_weights,
+                        group_ids,
+                    )
             elif num_bits == 4:
                 # Skip INT4 kernel if every expert in this layer is BF16-only
                 # (layer-level sensitivity/invariance sweeps hit this when a

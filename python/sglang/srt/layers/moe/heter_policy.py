@@ -20,7 +20,8 @@ Layered design:
 
 import abc
 import logging
-from typing import List, Optional, Tuple
+import os
+from typing import Dict, List, Optional, Tuple
 
 import torch
 
@@ -629,6 +630,171 @@ class ExpertBatchGatedHeterDispatch(HeterDispatchPolicy):
         return False
 
 
+class EfficiencyPromotionPolicy(HeterDispatchPolicy):
+    """Precomputed per-M expert→group mask, zero per-step computation.
+
+    Reads ``efficiency_promotion_lookup.json`` (built by
+    ``test/test_heter_moe/unittest/kernel_profile/build_promotion_lookup.py``)
+    which maps each captured M_global to ``x_runtime`` (number of experts
+    to promote to BF16). At ctor time the policy precomputes one
+    ``[num_experts]`` int64 mask tensor per M_global: top-``x_runtime``
+    experts (by static ``importance`` rank) tagged BF16, rest INT4.
+
+    Per dispatch:
+      1. ``M_global = token_selected_experts.shape[0]`` (host-known under
+         torch.compile / piecewise CUDA graph).
+      2. ``mask = self._M_to_mask.get(M_global, fallback)`` — host-side
+         dict access, captured as a constant tensor reference per shape.
+      3. ``self._dispatch_scratch.copy_(mask)`` — single GPU memcpy.
+
+    NO per-step ``token_counts``, NO ``>=`` compare, NO Python state
+    mutation. All decisions baked at ctor time. Compatible with sglang's
+    piecewise CUDA graph because dispatch has zero side effects and zero
+    runtime-recompile triggers.
+
+    Uses static ``importance`` (per-expert routing-frequency rank) to pick
+    which experts go BF16 — same data the heter assignment pipeline used
+    to decide which experts get dual-loaded.
+    """
+
+    def __init__(
+        self,
+        num_experts: int,
+        group_size_ratios: List[float],
+        bf16_promotion_threshold: int,
+        device: Optional[torch.device] = None,
+        int4_only_mask: Optional[torch.Tensor] = None,
+        int4_group_idx: int = 0,
+        bf16_only_mask: Optional[torch.Tensor] = None,
+        bf16_group_idx: Optional[int] = None,
+        lookup_file: Optional[str] = None,
+        importance: Optional[torch.Tensor] = None,
+    ):
+        _bf16_gidx = (
+            bf16_group_idx if bf16_group_idx is not None
+            else (1 - int4_group_idx)
+        )
+        super().__init__(
+            num_experts, group_size_ratios,
+            bf16_promotion_threshold=bf16_promotion_threshold,
+            device=device,
+            int4_only_mask=int4_only_mask, int4_group_idx=int4_group_idx,
+            bf16_only_mask=bf16_only_mask, bf16_group_idx=_bf16_gidx,
+        )
+        # Pre-built per-M expert→group mask tensors.
+        self._M_to_mask: Dict[int, torch.Tensor] = {}
+        # Pre-computed host-side bool: True ⇒ BF16 group is empty at this M.
+        # Avoids any GPU→host sync inside should_skip_group.
+        self._M_skip_bf16: Dict[int, bool] = {}
+        # Sorted M list used for nearest-M fallback at unseen shapes.
+        self._M_sorted: List[int] = []
+        # Default mask = all-INT4 (used when M not in lookup).
+        self._fallback_mask = torch.full(
+            (num_experts,), self._int4_group_idx,
+            dtype=torch.long, device=self._device,
+        )
+        if lookup_file is not None:
+            self._build_masks(lookup_file, importance)
+
+    def _build_masks(self, path: str, importance: Optional[torch.Tensor]) -> None:
+        import json as _json
+        if not os.path.exists(path):
+            logger.warning(
+                "EfficiencyPromotionPolicy: lookup file %s missing; "
+                "all masks default to all-INT4", path)
+            return
+        with open(path) as f:
+            data = _json.load(f)
+
+        # Static expert rank by importance (descending). If no importance
+        # provided, fall back to natural order [0, 1, ..., E-1] — works
+        # for tests but should be a real frequency rank in production.
+        if importance is None:
+            rank = torch.arange(
+                self._num_experts, dtype=torch.long, device=self._device)
+        else:
+            imp = importance.to(self._device).float()
+            rank = torch.argsort(imp, descending=True)
+
+        for M_str, entry in data.items():
+            x = int(entry.get("x_runtime", 0))
+            mask = torch.full(
+                (self._num_experts,), self._int4_group_idx,
+                dtype=torch.long, device=self._device,
+            )
+            has_bf16 = False
+            if x >= self._num_experts:
+                mask.fill_(self._bf16_group_idx)
+                has_bf16 = True
+            elif x > 0:
+                top_x = rank[:x]
+                mask.scatter_(0, top_x, self._bf16_group_idx)
+                has_bf16 = True
+            self._M_to_mask[int(M_str)] = mask
+            # Pre-compute the host-side "is BF16 group empty?" bool at
+            # init so should_skip_group never has to sync a GPU tensor
+            # during CUDA graph capture (a .item() inside capture is
+            # cudaErrorStreamCaptureUnsupported).
+            self._M_skip_bf16[int(M_str)] = not has_bf16
+
+        self._M_sorted = sorted(self._M_to_mask.keys())
+
+    def _mask_for(self, M_global: int) -> torch.Tensor:
+        """Resolve M_global to a precomputed mask. Pure host-side, no
+        Python state mutation."""
+        if M_global in self._M_to_mask:
+            return self._M_to_mask[M_global]
+        if not self._M_sorted:
+            return self._fallback_mask
+        # Nearest-M fallback (manual argmin, no min(..., key=)).
+        best = self._M_sorted[0]
+        best_d = abs(best - M_global)
+        for m in self._M_sorted[1:]:
+            d = abs(m - M_global)
+            if d < best_d:
+                best_d = d
+                best = m
+        return self._M_to_mask[best]
+
+    def _assign(self, token_counts, token_selected_experts, token_final_scales):
+        # Not used — dispatch overrides with the precomputed mask.
+        return self._fallback_mask
+
+    def dispatch(
+        self,
+        token_selected_experts: torch.Tensor,
+        token_final_scales: torch.Tensor,
+        sentinel: int = -1,
+    ) -> List[GroupDispatchTuple]:
+        M_global = token_selected_experts.shape[0]
+        mask = self._mask_for(M_global)            # host-side dict access
+        scratch = self._dispatch_scratch
+        scratch.copy_(mask)                        # GPU memcpy of constant
+        return self._dispatch_from_expert_to_group(
+            scratch, token_selected_experts, token_final_scales,
+            sentinel=sentinel)
+
+    def should_skip_group(self, group_idx: int, num_tokens: int) -> bool:
+        # Pure host-side: pre-computed at __init__ time. CRITICAL:
+        # this method is called by the layer INSIDE CUDA graph capture,
+        # so it must do zero GPU work and zero GPU→host sync.
+        if group_idx != self._bf16_group_idx:
+            return False
+        if num_tokens in self._M_skip_bf16:
+            return self._M_skip_bf16[num_tokens]
+        if not self._M_sorted:
+            return True
+        # Nearest-M fallback to a pre-computed bool.
+        best = self._M_sorted[0]
+        best_d = abs(best - num_tokens)
+        for m in self._M_sorted[1:]:
+            d = abs(m - num_tokens)
+            if d < best_d:
+                best_d = d
+                best = m
+        return self._M_skip_bf16[best]
+
+
 _POLICY_REGISTRY = {
     "expert_load": ExpertLoadHeterDispatch,
     "confidence": ConfidenceThresholdHeterDispatch,
@@ -636,6 +802,7 @@ _POLICY_REGISTRY = {
     "hessian_weighted_routing_weights": HessianWeightedRoutingWeightsDispatch,
     "random": RandomHeterDispatch,
     "expert_batch": ExpertBatchGatedHeterDispatch,
+    "efficiency_promotion": EfficiencyPromotionPolicy,
 }
 
 
