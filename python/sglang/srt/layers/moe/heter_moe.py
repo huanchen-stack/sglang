@@ -72,28 +72,43 @@ def _parse_heter_config(config_path: str) -> Dict[str, Any]:
             f"size_ratios must sum to 1.0, got {total_ratio}"
         )
 
-    # ``bf16_promotion_threshold`` is a required top-level field. The runtime
-    # promotes any expert with routed-token count >= threshold to BF16 in the
-    # ABC dispatch loop, regardless of which scoring policy is in use. It is
-    # NOT a policy-specific parameter -- do not nest it under ``policy_params``.
+    # ``bf16_promotion_threshold`` is the universal BF16-promotion threshold
+    # applied by the ABC's dispatch() in heter_policy.py: any expert with
+    # routed-token count >= threshold is promoted to BF16, regardless of the
+    # scoring policy's choice. Required for all policies EXCEPT
+    # ``efficiency_promotion``, which overrides dispatch() entirely (its
+    # decision is fully sourced from the precomputed M->mask lookup) and
+    # never reads the threshold. NOT a policy-specific parameter -- do not
+    # nest it under ``policy_params``.
     if "bf16_promotion_threshold" not in cfg:
-        # Old configs put the threshold under ``policy_params.threshold`` --
-        # surface a clear migration error rather than silently defaulting.
-        legacy = (cfg.get("policy_params") or {}).get("threshold")
-        legacy_hint = (
-            f" (legacy ``policy_params.threshold``={legacy} found -- "
-            "move it to top-level ``bf16_promotion_threshold`` and remove "
-            "from policy_params)"
-            if legacy is not None else ""
-        )
-        raise ValueError(
-            f"heter_config {config_path}: missing required top-level "
-            f"``bf16_promotion_threshold``{legacy_hint}"
-        )
+        if policy == "efficiency_promotion":
+            # Threshold is unused by EfficiencyPromotionPolicy.dispatch();
+            # default to 0 so the ABC's required ctor arg is satisfied.
+            cfg["bf16_promotion_threshold"] = 0
+        else:
+            # Old configs put the threshold under ``policy_params.threshold`` --
+            # surface a clear migration error rather than silently defaulting.
+            legacy = (cfg.get("policy_params") or {}).get("threshold")
+            legacy_hint = (
+                f" (legacy ``policy_params.threshold``={legacy} found -- "
+                "move it to top-level ``bf16_promotion_threshold`` and remove "
+                "from policy_params)"
+                if legacy is not None else ""
+            )
+            raise ValueError(
+                f"heter_config {config_path}: missing required top-level "
+                f"``bf16_promotion_threshold``{legacy_hint}"
+            )
     thr = cfg["bf16_promotion_threshold"]
     if not isinstance(thr, int) or isinstance(thr, bool) or thr < 0:
         raise ValueError(
             f"bf16_promotion_threshold must be a non-negative int, got {thr!r}"
+        )
+    if policy == "efficiency_promotion" and thr != 0:
+        logger.info(
+            "heter_config %s: bf16_promotion_threshold=%d is ignored under "
+            "policy=efficiency_promotion (precomputed M->mask lookup is used)",
+            config_path, thr,
         )
     # Load per-layer INT4-only expert lists if specified.
     # Format: {"layer_id": [expert_ids...], ...}

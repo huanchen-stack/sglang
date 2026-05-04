@@ -1,0 +1,39 @@
+# Run configuration for run_e2e_eval.sh
+# Edit num_prompts / max_concurrency to control the bench grid.
+#
+# num_prompts: -1   -> run every available ShareGPT sample (no per-bench cap;
+#                      the dataset's natural filtered size is the limit)
+#                         [never fucking run this!!!]     
+# num_prompts: 1000 -> matches sglang.bench_serving's own default
+
+num_prompts: 1000
+max_concurrency: [256]
+
+model:
+  path: /data/huggingface/hub/models--Qwen--Qwen3-30B-A3B/snapshots/ad44e777bcd18fa416d9da3bd8f70d33ebb85d39
+  tp_size: 1
+  mem_fraction_static: 0.83
+  # KV-cache bitwidth (applies to both baseline and treatment servers):
+  #   16 -> default (auto / bf16; sglang's automatic backend)
+  #    8 -> --kv-cache-dtype fp8_e4m3  --attention-backend triton
+  #    4 -> --kv-cache-dtype fp4_e2m1  --attention-backend triton  (CUDA 12.8+, torch 2.8+)
+  kv_cache_num_bits: 4
+
+dataset:
+  name: sharegpt
+  path: /data/huggingface/hub/datasets--anon8231489123--ShareGPT_Vicuna_unfiltered/snapshots/192ab2185289094fc556ec8ce5ce1e8e587154ca/ShareGPT_V3_unfiltered_cleaned_split.json
+
+# heter_config paths are resolved relative to the eval/ directory if not absolute.
+servers:
+  baseline:
+    heter_config: configs/baseline_int4_only.json
+    gpu: "0"
+    port: 31000
+  treatment:
+    heter_config: configs/treatment_mc64.json
+    gpu: "0"
+    port: 32000
+
+# Treatment server (efficiency_promotion policy) takes ~18 min to compile
+# because dynamo retraces the dispatch path per dynamic shape.
+server_ready_timeout_s: 1800
