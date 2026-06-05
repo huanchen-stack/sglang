@@ -12,6 +12,9 @@ Hopper FP8 — not our primary target. INT8 tests are omitted for now;
 will add if we decide to support INT8 in production.
 """
 
+import json
+import tempfile
+
 import pytest
 import torch
 
@@ -22,6 +25,33 @@ GROUP_SIZE = 128
 SEED = 42
 
 
+def _test_bf16_cells():
+    cell = {
+        "up": {
+            "BLOCK_SIZE_M": 32,
+            "BLOCK_SIZE_N": 32,
+            "BLOCK_SIZE_K": 128,
+            "GROUP_SIZE_M": 16,
+            "num_warps": 4,
+            "num_stages": 3,
+        },
+        "down": {
+            "BLOCK_SIZE_M": 32,
+            "BLOCK_SIZE_N": 64,
+            "BLOCK_SIZE_K": 64,
+            "GROUP_SIZE_M": 16,
+            "num_warps": 4,
+            "num_stages": 3,
+        },
+    }
+    return {"n2_mpe128": cell}
+
+
+def _default_lookup_rows():
+    row = {"_overall_best": "int4_only"}
+    return {"bs16": row, "bs64": row, "bs512": row}
+
+
 # ---------------------------------------------------------------------------
 # Shared helpers
 # ---------------------------------------------------------------------------
@@ -30,10 +60,27 @@ SEED = 42
 def _make_layer(config):
     from sglang.srt.layers.moe.heter_moe import HeterFusedMoE
 
-    return HeterFusedMoE(
-        num_experts=E, hidden_size=H, intermediate_size=I, top_k=K,
-        heter_config=config, dtype=torch.bfloat16, device=torch.device("cuda"),
-    )
+    cfg = dict(config)
+    lookup_rows = cfg.pop("_promotion_lookup_rows", _default_lookup_rows())
+    if "promotion_lookup_path" in cfg and "bf16_config_path" in cfg:
+        return HeterFusedMoE(
+            num_experts=E, hidden_size=H, intermediate_size=I, top_k=K,
+            heter_config=cfg, dtype=torch.bfloat16, device=torch.device("cuda"),
+        )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        promotion_path = f"{tmpdir}/promotion_lookup.json"
+        bf16_path = f"{tmpdir}/bf16_cells.json"
+        with open(promotion_path, "w") as f:
+            json.dump(lookup_rows, f)
+        with open(bf16_path, "w") as f:
+            json.dump(_test_bf16_cells(), f)
+        cfg["promotion_lookup_path"] = promotion_path
+        cfg["bf16_config_path"] = bf16_path
+        return HeterFusedMoE(
+            num_experts=E, hidden_size=H, intermediate_size=I, top_k=K,
+            heter_config=cfg, dtype=torch.bfloat16, device=torch.device("cuda"),
+        )
 
 
 def _make_inputs(with_logits=False):
@@ -331,6 +378,10 @@ class TestBatchSizeGatedForward:
             "policy": "expert_batch",
             "policy_params": {},
             "bf16_promotion_threshold": threshold,
+            "_promotion_lookup_rows": {
+                "bs64": {"_overall_best": "int4_only"},
+                "bs512": {"_overall_best": "bf16_full"},
+            },
         }
         layer = _make_layer(cfg)
         layer.w13_weight.data.copy_(bf16_w13)
@@ -417,12 +468,11 @@ class TestBatchSizeGatedForward:
         assert out_gated.isfinite().all()
         torch.testing.assert_close(out_gated, out_bf16, atol=0, rtol=0)
 
-    def test_int4_only_mask_keeps_int4_kernel_live(self, shared_weights):
-        """With INT4-only experts + balanced hot routing, both kernels run.
+    def test_int4_only_mask_keeps_both_dispatch_groups_live(self, shared_weights):
+        """With INT4-only experts + BF16-full row, both dispatch groups get work.
 
-        Use balanced routing so every expert crosses the threshold. Hot
-        non-INT4-only experts route to BF16; INT4-only experts are forced
-        back to INT4 by the mask. Both kernels receive real work.
+        The INT4-only mask is the final dispatch override: the lookup selects
+        BF16-full, but forced-INT4 experts must still be present in group 0.
         """
         from sglang.srt.layers.moe.heter_moe import HeterFusedMoE
 
@@ -437,7 +487,19 @@ class TestBatchSizeGatedForward:
             "policy": "expert_batch",
             "policy_params": {},
             "bf16_promotion_threshold": threshold,
+            "_promotion_lookup_rows": {
+                "bs512": {"_overall_best": "bf16_full"},
+            },
         }
+        tmpdir = tempfile.TemporaryDirectory()
+        promotion_path = f"{tmpdir.name}/promotion_lookup.json"
+        bf16_path = f"{tmpdir.name}/bf16_cells.json"
+        with open(promotion_path, "w") as f:
+            json.dump(cfg.pop("_promotion_lookup_rows"), f)
+        with open(bf16_path, "w") as f:
+            json.dump(_test_bf16_cells(), f)
+        cfg["promotion_lookup_path"] = promotion_path
+        cfg["bf16_config_path"] = bf16_path
         int4_only_experts = [0, 1, 5, 6]
         layer = HeterFusedMoE(
             num_experts=E, hidden_size=H, intermediate_size=I, top_k=K,
@@ -451,10 +513,6 @@ class TestBatchSizeGatedForward:
         layer.w2_weight.data.copy_(bf16_w2[dual])
         _fill_int4(layer, bf16_w13, bf16_w2)
 
-        # Sanity: hook reports neither group skippable above threshold.
-        assert layer.policy.should_skip_group(0, 256) is False
-        assert layer.policy.should_skip_group(1, 256) is False
-
         # Balanced routing so every expert sees >= threshold slots.
         n = threshold * E // K
         torch.manual_seed(0)
@@ -466,10 +524,64 @@ class TestBatchSizeGatedForward:
         router_logits = torch.randn(n, E, device="cuda")
         topk_out = make_topk_output(topk_weights, topk_ids, router_logits)
 
+        decision = layer._select_promotion_decision(n)
+        dispatches = layer.policy.dispatch(
+            topk_ids, topk_weights, decision.n_active, sentinel=-1)
+        int4_ids, int4_weights = dispatches[0]
+        bf16_ids, bf16_weights = dispatches[1]
+
+        assert int4_weights.abs().sum() > 0
+        assert bf16_weights.abs().sum() > 0
+        assert (int4_ids[topk_ids == 0] == 0).all()
+        assert (bf16_ids[topk_ids == 0] == -1).all()
+        assert (bf16_ids[topk_ids == 2] == 2).all()
+
+    def test_promotion_row_runs_bf16_with_explicit_config(self, shared_weights):
+        """A promotion lookup row should execute BF16 with its cell config."""
+        from sglang.srt.layers.moe.heter_moe import HeterFusedMoE
+
+        bf16_w13, bf16_w2 = shared_weights
+        tmpdir = tempfile.TemporaryDirectory()
+        promotion_path = f"{tmpdir.name}/promotion_lookup.json"
+        bf16_path = f"{tmpdir.name}/bf16_cells.json"
+        with open(promotion_path, "w") as f:
+            json.dump(
+                {
+                    "bs16": {
+                        "_overall_best": "promotion",
+                        "n_active": 2,
+                        "cell_key": "n2_mpe128",
+                    }
+                },
+                f,
+            )
+        with open(bf16_path, "w") as f:
+            json.dump(_test_bf16_cells(), f)
+
+        cfg = {
+            "groups": [
+                {"name": "int4", "num_bits": 4, "group_size": GROUP_SIZE},
+                {"name": "bf16", "num_bits": 16},
+            ],
+            "promotion_lookup_path": promotion_path,
+            "bf16_config_path": bf16_path,
+        }
+        layer = HeterFusedMoE(
+            num_experts=E, hidden_size=H, intermediate_size=I, top_k=K,
+            heter_config=cfg, dtype=torch.bfloat16,
+            device=torch.device("cuda"),
+            bf16_only_experts=list(range(E)),
+        )
+        layer.w13_weight.data.copy_(bf16_w13)
+        layer.w2_weight.data.copy_(bf16_w2)
+
+        x, topk_out = self._make_inputs_n(n=16, with_logits=True)
         out = layer(x, topk_out)
+
+        assert layer._last_promotion_decision.cell_key == "n2_mpe128"
+        assert layer._last_promotion_decision.bf16_up_config is not None
         assert out.shape == x.shape
         assert out.isfinite().all()
-        assert out.abs().sum() > 0
 
 
 if __name__ == "__main__":

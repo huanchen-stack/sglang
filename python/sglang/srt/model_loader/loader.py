@@ -693,11 +693,27 @@ class DefaultModelLoader(BaseModelLoader):
 
         server_args = get_global_server_args()
         if server_args and server_args.heter_precision_config:
-            from sglang.srt.layers.moe.heter_moe import apply_heter_precision
+            # Dispatch on the config file's "mode" field so a single
+            # --heter-precision-config flag can drive either the original
+            # mixed-precision path or the swap-entire-layer variant.
+            import json as _json
 
-            apply_heter_precision(
-                model, server_args.heter_precision_config, target_device
-            )
+            with open(server_args.heter_precision_config) as _f:
+                _heter_cfg_mode = _json.load(_f).get("mode")
+            if _heter_cfg_mode == "swap_entire_layer":
+                from sglang.srt.layers.moe.swap_entire_layer_moe import (
+                    apply_swap_entire_layer_precision,
+                )
+
+                apply_swap_entire_layer_precision(
+                    model, server_args.heter_precision_config, target_device
+                )
+            else:
+                from sglang.srt.layers.moe.heter_moe import apply_heter_precision
+
+                apply_heter_precision(
+                    model, server_args.heter_precision_config, target_device
+                )
 
         self.counter_after_loading_weights = time.perf_counter()
         return model.eval()

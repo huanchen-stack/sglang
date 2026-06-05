@@ -35,64 +35,136 @@ import json
 import logging
 import os
 import re
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 import torch
 import torch.nn as nn
 
 from sglang.srt.layers.moe.fused_moe_triton.fused_marlin_moe import fused_marlin_moe
-from sglang.srt.layers.moe.fused_moe_triton.fused_moe import outplace_fused_experts
+from sglang.srt.layers.moe.fused_moe_triton.fused_moe import (
+    outplace_fused_experts,
+    outplace_fused_experts_with_config,
+)
 from sglang.srt.layers.moe.heter_policy import (
-    HeterDispatchPolicy,
-    create_policy,
+    EfficiencyPromotionPolicy,
 )
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_PROMOTION_LOOKUP_PATH = (
+    "final-tuning/promotion_tuner/results/promotion_lookup.json"
+)
+DEFAULT_BF16_CONFIG_PATH = (
+    "final-tuning/triton_tuner/results/bf16_sparse_configs_sep.json"
+)
+_PROMOTION_MODES = {"int4_only", "promotion", "bf16_full"}
+
+
+@dataclass(frozen=True)
+class PromotionDecision:
+    mode: str
+    n_active: int
+    batch_size_key: int
+    cell_key: Optional[str] = None
+    bf16_up_config: Optional[Dict[str, int]] = None
+    bf16_down_config: Optional[Dict[str, int]] = None
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[5]
+
+
+def _resolve_existing_path(path: str, field_name: str) -> Path:
+    candidate = Path(path)
+    if candidate.is_file():
+        return candidate
+    if not candidate.is_absolute():
+        repo_candidate = _repo_root() / candidate
+        if repo_candidate.is_file():
+            return repo_candidate
+    raise FileNotFoundError(f"{field_name} does not exist: {path}")
+
+
+def _read_json_file(path: Path, field_name: str) -> Any:
+    with path.open() as f:
+        try:
+            return json.load(f)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"{field_name} is not valid JSON: {path}") from exc
+
+
+def _parse_batch_key(key: str) -> int:
+    if not (isinstance(key, str) and key.startswith("bs")):
+        raise ValueError(f"invalid promotion lookup batch key: {key!r}")
+    try:
+        return int(key[2:])
+    except ValueError as exc:
+        raise ValueError(f"invalid promotion lookup batch key: {key!r}") from exc
+
+
+def _load_promotion_lookup(path: str) -> Dict[int, Dict[str, Any]]:
+    resolved = _resolve_existing_path(path, "promotion_lookup_path")
+    raw = _read_json_file(resolved, "promotion_lookup_path")
+    if not isinstance(raw, dict) or not raw:
+        raise ValueError(f"promotion lookup must be a non-empty JSON object: {resolved}")
+
+    lookup: Dict[int, Dict[str, Any]] = {}
+    for key, row in raw.items():
+        batch_size = _parse_batch_key(key)
+        if not isinstance(row, dict):
+            raise ValueError(f"{resolved}: {key} must map to an object")
+        mode = row.get("_overall_best")
+        if mode not in _PROMOTION_MODES:
+            raise ValueError(
+                f"{resolved}: {key} has invalid _overall_best={mode!r}"
+            )
+        if mode == "promotion":
+            n_active = row.get("n_active")
+            cell_key = row.get("cell_key")
+            if not isinstance(n_active, int) or isinstance(n_active, bool) or n_active < 0:
+                raise ValueError(f"{resolved}: {key}.n_active must be a non-negative int")
+            if not isinstance(cell_key, str) or cell_key == "int4_only":
+                raise ValueError(f"{resolved}: {key}.cell_key must name a BF16 cell")
+        lookup[batch_size] = row
+    return dict(sorted(lookup.items()))
+
+
+def _load_bf16_cells(path: str) -> Dict[str, Dict[str, Dict[str, int]]]:
+    resolved = _resolve_existing_path(path, "bf16_config_path")
+    raw = _read_json_file(resolved, "bf16_config_path")
+    if not isinstance(raw, dict) or not raw:
+        raise ValueError(f"BF16 config must be a non-empty JSON object: {resolved}")
+
+    cells: Dict[str, Dict[str, Dict[str, int]]] = {}
+    for key, cell in raw.items():
+        if not isinstance(cell, dict):
+            raise ValueError(f"{resolved}: {key} must map to an object")
+        up = cell.get("up")
+        down = cell.get("down")
+        if not isinstance(up, dict) or not isinstance(down, dict):
+            raise ValueError(f"{resolved}: {key} requires up/down config objects")
+        up_config = {str(k): int(v) for k, v in up.items()}
+        down_config = {str(k): int(v) for k, v in down.items()}
+        if up_config.get("BLOCK_SIZE_M") != down_config.get("BLOCK_SIZE_M"):
+            raise ValueError(f"{resolved}: {key} up/down BLOCK_SIZE_M mismatch")
+        cells[str(key)] = {"up": up_config, "down": down_config}
+    return cells
 
 
 def _parse_heter_config(config_path: str) -> Dict[str, Any]:
     with open(config_path) as f:
         cfg = json.load(f)
     groups = cfg["groups"]
-    # ``size_ratio`` is only consumed by score-based policies (expert_load,
-    # confidence, total_weight, random) to pick top-K experts per group.
-    # ``expert_batch`` decides per-expert hot/cold at runtime from token
-    # counts and ignores the ratios entirely -- so they're optional there.
+    # ``size_ratio`` is not used by the efficiency-promotion runtime. Keep it
+    # optional so old and new configs both parse.
     # NOTE: ``group_size`` on INT4 groups is the GPTQ quantization group
     # size (e.g. 128 scales per K), unrelated to the precision groups.
-    policy = cfg.get("policy", "expert_load")
-    if policy == "expert_batch":
-        for g in groups:
-            g.setdefault("size_ratio", 0.0)
-    else:
-        total_ratio = sum(g["size_ratio"] for g in groups)
-        assert abs(total_ratio - 1.0) < 1e-3, (
-            f"size_ratios must sum to 1.0, got {total_ratio}"
-        )
-
-    # ``bf16_promotion_threshold`` is a required top-level field. The runtime
-    # promotes any expert with routed-token count >= threshold to BF16 in the
-    # ABC dispatch loop, regardless of which scoring policy is in use. It is
-    # NOT a policy-specific parameter -- do not nest it under ``policy_params``.
-    if "bf16_promotion_threshold" not in cfg:
-        # Old configs put the threshold under ``policy_params.threshold`` --
-        # surface a clear migration error rather than silently defaulting.
-        legacy = (cfg.get("policy_params") or {}).get("threshold")
-        legacy_hint = (
-            f" (legacy ``policy_params.threshold``={legacy} found -- "
-            "move it to top-level ``bf16_promotion_threshold`` and remove "
-            "from policy_params)"
-            if legacy is not None else ""
-        )
-        raise ValueError(
-            f"heter_config {config_path}: missing required top-level "
-            f"``bf16_promotion_threshold``{legacy_hint}"
-        )
-    thr = cfg["bf16_promotion_threshold"]
-    if not isinstance(thr, int) or isinstance(thr, bool) or thr < 0:
-        raise ValueError(
-            f"bf16_promotion_threshold must be a non-negative int, got {thr!r}"
-        )
+    for g in groups:
+        g.setdefault("size_ratio", 0.0)
+    cfg.setdefault("promotion_lookup_path", DEFAULT_PROMOTION_LOOKUP_PATH)
+    cfg.setdefault("bf16_config_path", DEFAULT_BF16_CONFIG_PATH)
     # Load per-layer INT4-only expert lists if specified.
     # Format: {"layer_id": [expert_ids...], ...}
     # These experts have NO BF16 weights — always routed to INT4 kernel.
@@ -175,8 +247,7 @@ class HeterFusedMoE(nn.Module):
         # Only used by the per-layer sensitivity sweep for VRAM savings,
         # not in normal online serving.
         bf16_only_experts: Optional[list] = None,
-        # Required when heter_config has "expert_importance_file" so we can
-        # select this layer's per-expert importance slice.
+        # Kept for constructor compatibility with from_fused_moe/apply path.
         layer_id: Optional[int] = None,
     ):
         super().__init__()
@@ -248,54 +319,26 @@ class HeterFusedMoE(nn.Module):
 
         self.group_cfgs = heter_config["groups"]
         self.num_groups = len(self.group_cfgs)
-        self.group_ratios = [g["size_ratio"] for g in self.group_cfgs]
 
-        policy_name = heter_config.get("policy", "expert_load")
-        policy_kwargs = dict(heter_config.get("policy_params", {}))
-        # Universal BF16 promotion threshold lives at the top level, not under
-        # policy_params. Strip any stray legacy ``threshold`` from policy_params
-        # so it isn't double-passed to the policy ctor.
-        policy_kwargs.pop("threshold", None)
-        bf16_promotion_threshold = int(heter_config["bf16_promotion_threshold"])
+        self._promotion_lookup_path = heter_config.get(
+            "promotion_lookup_path", DEFAULT_PROMOTION_LOOKUP_PATH)
+        self._bf16_config_path = heter_config.get(
+            "bf16_config_path", DEFAULT_BF16_CONFIG_PATH)
+        self._promotion_lookup = _load_promotion_lookup(
+            self._promotion_lookup_path)
+        self._promotion_batch_sizes = sorted(self._promotion_lookup)
+        self._bf16_cells = _load_bf16_cells(self._bf16_config_path)
+        self._validate_promotion_lookup_cells()
+        self._last_promotion_decision: Optional[PromotionDecision] = None
 
-        importance_file = heter_config.get("expert_importance_file")
-        self.expert_importance: Optional[torch.Tensor] = None
-        if importance_file is not None:
-            if layer_id is None:
-                raise ValueError(
-                    "heter_config.expert_importance_file is set but "
-                    "layer_id was not passed to HeterFusedMoE"
-                )
-            with open(importance_file) as f:
-                importance_by_layer = json.load(f)
-            key = str(layer_id)
-            if key not in importance_by_layer:
-                raise KeyError(
-                    f"expert_importance_file {importance_file} missing "
-                    f"entry for layer {layer_id}"
-                )
-            row = importance_by_layer[key]
-            if len(row) != num_experts:
-                raise ValueError(
-                    f"expert_importance layer {layer_id}: length "
-                    f"{len(row)} != num_experts {num_experts}"
-                )
-            self.expert_importance = torch.tensor(
-                row, dtype=torch.float32, device=self.device
-            )
-            policy_kwargs.setdefault("importance", self.expert_importance)
-
-        self.policy: HeterDispatchPolicy = create_policy(
-            policy_name,
+        self.policy = EfficiencyPromotionPolicy(
             num_experts=num_experts,
-            group_size_ratios=self.group_ratios,
-            bf16_promotion_threshold=bf16_promotion_threshold,
+            num_groups=self.num_groups,
             device=self.device,
             int4_only_mask=self._int4_only_mask,
             int4_group_idx=self._int4_group_idx,
             bf16_only_mask=self._bf16_only_mask,
             bf16_group_idx=self._bf16_group_idx,
-            **policy_kwargs,
         )
 
         self._int4_is_k_full = True
@@ -322,6 +365,49 @@ class HeterFusedMoE(nn.Module):
             elif num_bits == 8:
                 if not hasattr(self, "w13_weight"):
                     self._init_int8_params(E, H, I)
+
+    def _validate_promotion_lookup_cells(self) -> None:
+        """Validate that every promotion row names an available BF16 cell."""
+        for batch_size, row in self._promotion_lookup.items():
+            if row["_overall_best"] != "promotion":
+                continue
+            cell_key = row["cell_key"]
+            if cell_key not in self._bf16_cells:
+                raise ValueError(
+                    f"promotion lookup bs{batch_size} references missing "
+                    f"BF16 cell_key {cell_key!r} in {self._bf16_config_path}"
+                )
+
+    def _select_promotion_decision(self, num_tokens: int) -> PromotionDecision:
+        """Choose the nearest tuned promotion row for this token batch size."""
+        batch_size_key = min(
+            self._promotion_batch_sizes,
+            key=lambda candidate: (abs(candidate - num_tokens), candidate),
+        )
+        row = self._promotion_lookup[batch_size_key]
+        mode = row["_overall_best"]
+
+        if mode == "int4_only":
+            return PromotionDecision(
+                mode=mode, n_active=0, batch_size_key=batch_size_key)
+        if mode == "bf16_full":
+            return PromotionDecision(
+                mode=mode,
+                n_active=self.num_experts,
+                batch_size_key=batch_size_key,
+            )
+
+        cell_key = row["cell_key"]
+        cell = self._bf16_cells[cell_key]
+        n_active = max(0, min(int(row["n_active"]), self.num_experts))
+        return PromotionDecision(
+            mode=mode,
+            n_active=n_active,
+            batch_size_key=batch_size_key,
+            cell_key=cell_key,
+            bf16_up_config=cell["up"],
+            bf16_down_config=cell["down"],
+        )
 
     def init_fake_weights(self, seed: int = 0) -> None:
         gen = torch.Generator(device=self.device)
@@ -770,20 +856,17 @@ class HeterFusedMoE(nn.Module):
             topk_weights = topk_weights.clone()
             topk_weights[non_local] = 0.0
 
-        # Sentinel = -1: Triton (BF16/INT8) fully skips expert ID -1.
-        group_dispatches = self.policy.dispatch(topk_ids, topk_weights, sentinel=-1)
-
-        # Host-side: number of tokens in this batch (used by short-circuit
-        # policies like batch_size). For other policies should_skip_group()
-        # always returns False.
         num_tokens = topk_ids.shape[0]
+        decision = self._select_promotion_decision(num_tokens)
+        self._last_promotion_decision = decision
+
+        # Sentinel = -1: Triton (BF16/INT8) fully skips expert ID -1.
+        group_dispatches = self.policy.dispatch(
+            topk_ids, topk_weights, decision.n_active, sentinel=-1)
 
         output = None
 
         for group_idx, gcfg in enumerate(self.group_cfgs):
-            if self.policy.should_skip_group(group_idx, num_tokens):
-                continue
-
             group_ids, group_weights = group_dispatches[group_idx]
 
             num_bits = gcfg.get("num_bits", 16)
@@ -792,23 +875,42 @@ class HeterFusedMoE(nn.Module):
                 # Skip BF16 kernel if all experts are INT4-only for this layer
                 if self._num_bf16_experts == 0:
                     continue
+                if (decision.n_active == 0
+                        and self._bf16_only_mask is None
+                        and self._bf16_group_idx != self._int4_group_idx):
+                    continue
                 # Remap expert IDs to compact BF16 tensor indices
                 if self._bf16_id_remap is not None:
                     safe_ids = group_ids.clamp(min=0)
                     remapped = self._bf16_id_remap[safe_ids]
                     group_ids = torch.where(group_ids >= 0, remapped, group_ids)
-                group_out = outplace_fused_experts(
-                    hidden_states,
-                    self.w13_weight,
-                    self.w2_weight,
-                    group_weights,
-                    group_ids,
-                )
+                if decision.bf16_up_config is not None:
+                    group_out = outplace_fused_experts_with_config(
+                        hidden_states,
+                        self.w13_weight,
+                        self.w2_weight,
+                        group_weights,
+                        group_ids,
+                        up_config=decision.bf16_up_config,
+                        down_config=decision.bf16_down_config,
+                    )
+                else:
+                    group_out = outplace_fused_experts(
+                        hidden_states,
+                        self.w13_weight,
+                        self.w2_weight,
+                        group_weights,
+                        group_ids,
+                    )
             elif num_bits == 4:
                 # Skip INT4 kernel if every expert in this layer is BF16-only
                 # (layer-level sensitivity/invariance sweeps hit this when a
                 # layer is 100% BF16 — no INT4 params were created).
                 if self._all_bf16_only:
+                    continue
+                if (decision.n_active >= self.num_experts
+                        and self._bf16_group_idx != self._int4_group_idx
+                        and self._int4_only_mask is None):
                     continue
                 # expert_map enables is_ep=True inside fused_marlin_moe,
                 # which makes the Marlin GEMM kernel skip expert_id=-1

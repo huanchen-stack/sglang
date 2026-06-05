@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import functools
 import os
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import torch
 import torch.nn.functional as F
@@ -201,6 +201,32 @@ def outplace_fused_experts(
     )
 
 
+def outplace_fused_experts_with_config(
+    hidden_states: torch.Tensor,
+    w1: torch.Tensor,
+    w2: torch.Tensor,
+    topk_weights: torch.Tensor,
+    topk_ids: torch.Tensor,
+    up_config: Dict[str, Any],
+    down_config: Dict[str, Any],
+) -> torch.Tensor:
+    """Run BF16 fused experts with explicit tuner-selected configs.
+
+    ``outplace_fused_experts`` is registered as a torch custom op and cannot
+    expose dict-typed arguments in its schema.  Heterogeneous MoE uses this
+    plain Python wrapper only when it needs per-call BF16 config overrides.
+    """
+    return fused_experts_impl(
+        hidden_states,
+        w1,
+        w2,
+        topk_weights,
+        topk_ids,
+        up_config=up_config,
+        down_config=down_config,
+    )
+
+
 def fused_experts(
     hidden_states: torch.Tensor,
     w1: torch.Tensor,
@@ -349,6 +375,8 @@ def fused_experts_impl(
     gemm1_alpha: Optional[float] = None,
     gemm1_limit: Optional[float] = None,
     filter_expert: bool = True,
+    up_config: Optional[Dict[str, Any]] = None,
+    down_config: Optional[Dict[str, Any]] = None,
 ):
     padded_size = padding_size
     if not (use_fp8_w8a8 or use_int8_w8a8) or block_shape is not None or _use_aiter:
@@ -381,16 +409,28 @@ def fused_experts_impl(
         dtype=hidden_states.dtype,
     )
 
-    get_config_func = functools.partial(
-        try_get_optimal_moe_config,
-        w1.shape,
-        (w2.shape[0], w2.shape[1], w2.shape[2] - padded_size),
-        topk_ids.shape[1],
-        config_dtype,
-        block_shape=block_shape,
-        per_channel_quant=per_channel_quant,
-        return_down_config=True,
-    )
+    if up_config is None:
+        def get_config_func(m):
+            return try_get_optimal_moe_config(
+                w1.shape,
+                (w2.shape[0], w2.shape[1], w2.shape[2] - padded_size),
+                topk_ids.shape[1],
+                config_dtype,
+                m,
+                block_shape=block_shape,
+                per_channel_quant=per_channel_quant,
+                return_down_config=True,
+            )
+    else:
+        max_block_m = up_config["BLOCK_SIZE_M"]
+        if down_config is not None:
+            assert up_config["BLOCK_SIZE_M"] == down_config["BLOCK_SIZE_M"]
+            max_block_m = max(max_block_m, down_config["BLOCK_SIZE_M"])
+
+        def get_config_func(_m):
+            cfg = dict(up_config)
+            down_cfg = dict(down_config) if down_config is not None else None
+            return cfg, (down_cfg, max_block_m)
 
     config, (down_config, max_block_m) = get_config_func(M)
     down_moe_use_tma = (
