@@ -198,6 +198,7 @@ from sglang.srt.observability.req_time_stats import (
     set_schedule_time_batch,
     set_time_batch,
 )
+from sglang.srt.observability.rollout_trace import RolloutLifecycleTracer
 from sglang.srt.observability.scheduler_metrics_mixin import (
     RECORD_STEP_TIME,
     PrefillStats,
@@ -431,6 +432,21 @@ class Scheduler(
 
         # Init profiler
         self.init_profiler()
+
+        # CPU-side JSONL tracing for rollout precision experiments. This does
+        # not change batch construction or any CUDA graph eligibility gate.
+        self.rollout_tracer = RolloutLifecycleTracer.from_env(
+            gpu_id=self.gpu_id,
+            tp_rank=self.tp_rank,
+            pp_rank=self.pp_rank,
+            attn_tp_rank=self.attn_tp_rank,
+            attn_cp_rank=self.attn_cp_rank,
+            dp_rank=self.dp_rank,
+            model_path=server_args.model_path,
+            dtype=server_args.dtype,
+            quantization=server_args.quantization,
+            tp_size=server_args.tp_size,
+        )
 
         # Init prefill-decodedisaggregation
         self.init_disaggregation()
@@ -2001,6 +2017,13 @@ class Scheduler(
             self._prefetch_kvcache(req)
             self.waiting_queue.append(req)
             req.time_stats.set_wait_queue_entry_time()
+            self.rollout_tracer.write(
+                "phase_start",
+                req=req,
+                phase="waiting",
+                queue_len=len(self.waiting_queue),
+                is_retracted=is_retracted,
+            )
         elif self.disaggregation_mode == DisaggregationMode.PREFILL:
             self._prefetch_kvcache(req)
             self.disagg_prefill_bootstrap_queue.add(
@@ -2540,6 +2563,14 @@ class Scheduler(
 
         can_run_set = set(can_run_list)
         self.waiting_queue = [x for x in self.waiting_queue if x not in can_run_set]
+        for req in can_run_list:
+            self.rollout_tracer.write(
+                "phase_end",
+                req=req,
+                phase="waiting",
+                next_phase="prefill",
+                queue_len=len(self.waiting_queue),
+            )
         if adder.preempt_list:
             for req in adder.preempt_list:
                 self._add_request_to_queue(req)
@@ -2700,6 +2731,44 @@ class Scheduler(
     ) -> Union[GenerationBatchResult, EmbeddingBatchResult]:
         """Run a batch."""
         self.forward_ct += 1
+        trace_batch_id = self.forward_ct
+        trace_batch_size = batch.batch_size()
+        trace_forward_mode = batch.forward_mode.name
+        trace_decode_reqs = set(batch.decoding_reqs or [])
+        if batch.forward_mode.is_decode():
+            trace_decode_reqs.update(batch.reqs)
+        trace_decode_reqs = {
+            req
+            for req in trace_decode_reqs
+            if req in batch.reqs and not req.finished()
+        }
+        trace_prefill_reqs = [
+            req
+            for req in batch.reqs
+            if batch.forward_mode.is_extend() and req not in trace_decode_reqs
+        ]
+        trace_start_ts = time.perf_counter()
+        for req in trace_prefill_reqs:
+            self.rollout_tracer.write(
+                "phase_start",
+                timestamp=trace_start_ts,
+                req=req,
+                phase="prefill",
+                batch_id=trace_batch_id,
+                batch_size=trace_batch_size,
+                forward_mode=trace_forward_mode,
+                extend_input_len=req.extend_input_len,
+            )
+        for req in trace_decode_reqs:
+            self.rollout_tracer.write(
+                "phase_start",
+                timestamp=trace_start_ts,
+                req=req,
+                phase="decode",
+                batch_id=trace_batch_id,
+                batch_size=trace_batch_size,
+                forward_mode=trace_forward_mode,
+            )
 
         # Whether to run the profiler
         self._profile_batch_predicate(batch)
@@ -2827,6 +2896,31 @@ class Scheduler(
         # Capture prefill end time for EXTEND mode
         if batch.forward_mode == ForwardMode.EXTEND:
             set_time_batch(batch.reqs, "set_prefill_run_batch_end_time")
+
+        trace_end_ts = time.perf_counter()
+        can_run_cuda_graph = getattr(ret, "can_run_cuda_graph", None)
+        for req in trace_prefill_reqs:
+            self.rollout_tracer.write(
+                "phase_end",
+                timestamp=trace_end_ts,
+                req=req,
+                phase="prefill",
+                batch_id=trace_batch_id,
+                batch_size=trace_batch_size,
+                forward_mode=trace_forward_mode,
+                can_run_cuda_graph=can_run_cuda_graph,
+            )
+        for req in trace_decode_reqs:
+            self.rollout_tracer.write(
+                "phase_end",
+                timestamp=trace_end_ts,
+                req=req,
+                phase="decode",
+                batch_id=trace_batch_id,
+                batch_size=trace_batch_size,
+                forward_mode=trace_forward_mode,
+                can_run_cuda_graph=can_run_cuda_graph,
+            )
 
         if (
             self.server_args.enable_dp_attention

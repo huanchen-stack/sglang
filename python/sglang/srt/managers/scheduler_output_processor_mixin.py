@@ -190,6 +190,16 @@ class SchedulerOutputProcessorMixin:
                         self.maybe_collect_routed_experts(req)
                         release_kv_cache(req, self.tree_cache)
                         req.time_stats.set_completion_time()
+                        self.rollout_tracer.write(
+                            "request_complete",
+                            req=req,
+                            phase="prefill",
+                            finish_reason=(
+                                req.finished_reason.to_json()
+                                if req.finished_reason
+                                else None
+                            ),
+                        )
                     elif not batch.decoding_reqs or req not in batch.decoding_reqs:
                         self.tree_cache.cache_unfinished_req(req)
                         if self.enable_hisparse:
@@ -315,6 +325,16 @@ class SchedulerOutputProcessorMixin:
                     if req.finished():
                         release_kv_cache(req, self.tree_cache)
                         req.time_stats.set_completion_time()
+                        self.rollout_tracer.write(
+                            "request_complete",
+                            req=req,
+                            phase="prefill",
+                            finish_reason=(
+                                req.finished_reason.to_json()
+                                if req.finished_reason
+                                else None
+                            ),
+                        )
                     else:
                         self.tree_cache.cache_unfinished_req(req)
                 else:
@@ -552,6 +572,14 @@ class SchedulerOutputProcessorMixin:
                 release_kv_cache(req, self.tree_cache)
 
             req.time_stats.set_completion_time()
+            self.rollout_tracer.write(
+                "request_complete",
+                req=req,
+                phase="decode",
+                finish_reason=(
+                    req.finished_reason.to_json() if req.finished_reason else None
+                ),
+            )
 
         self.maybe_collect_customized_info(i, req, logits_output)
 
