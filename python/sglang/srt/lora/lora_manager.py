@@ -20,6 +20,9 @@ from typing import Dict, Iterable, List, Optional
 
 import torch
 
+from sglang.srt.compilation.piecewise_context_manager import (
+    is_in_piecewise_cuda_graph,
+)
 from sglang.srt.configs.load_config import LoadConfig
 from sglang.srt.layers.moe.fused_moe_triton.layer import FusedMoE
 from sglang.srt.layers.utils import get_layer_id
@@ -296,7 +299,10 @@ class LoRAManager:
         use_cuda_graph = (
             hasattr(self, "max_bs_in_cuda_graph")
             and bs <= self.max_bs_in_cuda_graph
-            and forward_batch.forward_mode.is_cuda_graph()
+            and (
+                forward_batch.forward_mode.is_cuda_graph()
+                or is_in_piecewise_cuda_graph()
+            )
         )
 
         weight_indices = [0] * len(forward_batch.lora_ids)
@@ -320,6 +326,7 @@ class LoRAManager:
         self.lora_backend.batch_info.has_active_lora = any(
             lora_ranks[wi] > 0 for wi in weight_indices
         )
+        self.lora_backend.batch_info.is_decode = forward_batch.forward_mode.is_decode()
 
     def update_lora_info(self):
         """

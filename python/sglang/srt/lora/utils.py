@@ -48,6 +48,10 @@ class LoRABatchInfo:
     # Computed from Python lists in prepare_lora_batch to avoid GPU sync.
     has_active_lora: bool = False
 
+    # CPU-side flag: True for decode-mode batches. The experimental
+    # parallel-stream LoRA path is decode-only; prefill keeps the normal path.
+    is_decode: bool = False
+
 
 class LoRAType(Enum):
     LORA_A = 0

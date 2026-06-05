@@ -535,6 +535,12 @@ async def health_generate(request: Request) -> Response:
             input_ids=[0],
             sampling_params=sampling_params,
             log_metrics=False,
+            lora_path=(
+                _global_state.tokenizer_manager.server_args.lora_paths[0].lora_name
+                if _global_state.tokenizer_manager.server_args.enable_lora
+                and _global_state.tokenizer_manager.server_args.lora_paths
+                else None
+            ),
         )
         if (
             _global_state.tokenizer_manager.server_args.disaggregation_mode
@@ -1925,6 +1931,14 @@ def _execute_server_warmup(server_args: ServerArgs):
         # TODO Workaround the bug that embedding errors for list of size 1
         if server_args.dp_size == 1:
             json_data["text"] = json_data["text"][0]
+
+    if (
+        model_info["is_generation"]
+        and server_args.enable_lora
+        and server_args.lora_paths
+        and request_name != "/v1/chat/completions"
+    ):
+        json_data["lora_path"] = server_args.lora_paths[0].lora_name
 
     # Config debug dumping
     if server_args.debug_tensor_dump_input_file:

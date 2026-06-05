@@ -280,8 +280,28 @@ class ChunkedSgmvLoRABackend(BaseLoRABackend):
         else:
             batch_info = self.cuda_graph_batch_info
             batch_info.bs = forward_batch.batch_size
-            batch_info.num_segments = num_segments
+            graph_num_segments = (
+                (len(forward_batch.input_ids) + chunk_size - 1) // chunk_size
+            ) * self.max_loras_per_batch
+            # In CUDA graph mode, keep the host-side integer arguments to the
+            # compileable LoRA ops static for a given graph shape. Otherwise a
+            # real chunked prefill batch with bs > 1 can trigger a replay-time
+            # torch.compile miss after capture.
+            batch_info.num_segments = graph_num_segments
             batch_info.max_len = chunk_size
+            if graph_num_segments > num_segments:
+                padded_weight_indices = torch.zeros(
+                    graph_num_segments, dtype=torch.int32, pin_memory=True
+                )
+                padded_weight_indices[:num_segments].copy_(seg_weight_indices)
+                padded_seg_indptr = torch.empty(
+                    graph_num_segments + 1, dtype=torch.int32, pin_memory=True
+                )
+                padded_seg_indptr[: num_segments + 1].copy_(seg_indptr)
+                padded_seg_indptr[num_segments + 1 :].fill_(seg_indptr[-1].item())
+                seg_weight_indices = padded_weight_indices
+                seg_indptr = padded_seg_indptr
+                num_segments = graph_num_segments
 
         # Copy to device asynchronously
         batch_info.lora_ranks[: self.max_loras_per_batch].copy_(

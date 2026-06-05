@@ -182,35 +182,99 @@ def chunked_sgmv_lora_expand_forward(
 
     num_segments = batch_info.num_segments
 
-    grid = (
-        triton.cdiv(max_slice_size, BLOCK_N),
-        num_slices,  # number of slices in the input/output
-        batch_info.bs if batch_info.use_cuda_graph else num_segments,
-    )
-
     if base_output is None:
         output = torch.zeros((M, OUTPUT_DIM), device=x.device, dtype=x.dtype)
     else:
         output = base_output
 
+    _chunked_sgmv_lora_expand_forward_compileable(
+        x,
+        weights,
+        output,
+        batch_info.seg_indptr,
+        batch_info.weight_indices,
+        batch_info.lora_ranks,
+        batch_info.permutation,
+        batch_info.scalings,
+        slice_offsets,
+        num_segments,
+        batch_info.bs if batch_info.use_cuda_graph else num_segments,
+        num_slices,
+        max_slice_size,
+        BLOCK_M,
+        BLOCK_N,
+        BLOCK_K,
+    )
+    return output
+
+
+@torch.library.custom_op(
+    "sglang::chunked_sgmv_lora_expand", mutates_args=("output",)
+)
+def _chunked_sgmv_lora_expand_forward_compileable(
+    x: torch.Tensor,
+    weights: torch.Tensor,
+    output: torch.Tensor,
+    seg_indptr: torch.Tensor,
+    weight_indices: torch.Tensor,
+    lora_ranks: torch.Tensor,
+    permutation: Optional[torch.Tensor],
+    scalings: torch.Tensor,
+    slice_offsets: torch.Tensor,
+    num_segments: int,
+    grid_segments: int,
+    num_slices: int,
+    max_slice_size: int,
+    block_m: int,
+    block_n: int,
+    block_k: int,
+) -> None:
+    OUTPUT_DIM = weights.shape[1]
+    MAX_RANK = weights.shape[2]
+    grid = (
+        triton.cdiv(max_slice_size, block_n),
+        num_slices,
+        grid_segments,
+    )
+
     _chunked_lora_expand_kernel[grid](
         x=x,
         weights=weights,
         output=output,
-        seg_indptr=batch_info.seg_indptr,
-        weight_indices=batch_info.weight_indices,
-        lora_ranks=batch_info.lora_ranks,
-        permutation=batch_info.permutation,
+        seg_indptr=seg_indptr,
+        weight_indices=weight_indices,
+        lora_ranks=lora_ranks,
+        permutation=permutation,
         num_segs=num_segments,
-        scalings=batch_info.scalings,
+        scalings=scalings,
         slice_offsets=slice_offsets,
         # constants
         NUM_SLICES=num_slices,
         OUTPUT_DIM=OUTPUT_DIM,
         MAX_RANK=MAX_RANK,
-        BLOCK_M=BLOCK_M,
-        BLOCK_N=BLOCK_N,
-        BLOCK_K=BLOCK_K,
+        BLOCK_M=block_m,
+        BLOCK_N=block_n,
+        BLOCK_K=block_k,
     )
 
-    return output
+
+@_chunked_sgmv_lora_expand_forward_compileable.register_fake
+def _chunked_sgmv_lora_expand_forward_compileable_fake(
+    x,
+    weights,
+    output,
+    seg_indptr,
+    weight_indices,
+    lora_ranks,
+    permutation,
+    scalings,
+    slice_offsets,
+    num_segments,
+    grid_segments,
+    num_slices,
+    max_slice_size,
+    block_m,
+    block_n,
+    block_k,
+):
+    return None

@@ -601,9 +601,18 @@ class CudaGraphRunner:
             # Phase 2 of LoRA CUDA graph init: dense LoRA batch metadata.
             # Phase 1 (MoE buffers) was handled earlier in ModelRunner via
             # lora_manager.init_cuda_graph_moe_buffers().
+            lora_num_tokens_per_bs = self.num_tokens_per_bs
+            if (
+                not self.model_runner.server_args.disable_piecewise_cuda_graph
+                and self.model_runner.server_args.piecewise_cuda_graph_max_tokens
+            ):
+                lora_num_tokens_per_bs = max(
+                    lora_num_tokens_per_bs,
+                    self.model_runner.server_args.piecewise_cuda_graph_max_tokens,
+                )
             self.model_runner.lora_manager.init_cuda_graph_batch_info(
                 max_bs_in_cuda_graph=self.max_bs,
-                num_tokens_per_bs=self.num_tokens_per_bs,
+                num_tokens_per_bs=lora_num_tokens_per_bs,
             )
 
         enable_mamba_track = (
@@ -673,6 +682,15 @@ class CudaGraphRunner:
 
     def _cache_loc_dtype(self):
         return torch.int64
+
+    def _capture_lora_ids(self, batch_size: int):
+        if not self.model_runner.server_args.enable_lora:
+            return None
+        lora_paths = self.model_runner.server_args.lora_paths
+        capture_lora_id = lora_paths[0].lora_id if lora_paths else None
+        if capture_lora_id is not None:
+            self.model_runner.lora_manager.fetch_new_loras({capture_lora_id})
+        return [capture_lora_id] * batch_size
 
     def can_run(self, forward_batch: ForwardBatch):
         # Disable for token embedding overrides (dynamic per-request)
@@ -919,12 +937,7 @@ class CudaGraphRunner:
                 spec_info.capture_hidden_mode if spec_info else CaptureHiddenMode.NULL
             )
 
-        if self.model_runner.server_args.enable_lora:
-            # It is safe to capture CUDA graph using empty LoRA id, as the LoRA kernels will always be launched whenever
-            # `--enable-lora` is set to True (and return immediately if the LoRA id is empty for perf optimization).
-            lora_ids = [None] * bs
-        else:
-            lora_ids = None
+        lora_ids = self._capture_lora_ids(bs)
 
         # mamba state tracking
         mamba_track_indices = (

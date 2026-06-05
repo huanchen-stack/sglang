@@ -1,3 +1,4 @@
+import os
 from typing import Dict, Optional, Union
 
 import torch
@@ -37,6 +38,11 @@ class BaseLayerWithLoRA(nn.Module):
         self.base_layer: nn.Module = base_layer
         self.set_lora: bool = False
         self.lora_backend: BaseLoRABackend = lora_backend
+        self.lora_parallel_streams: bool = (
+            os.getenv("SGLANG_LORA_PARALLEL_STREAMS", "0").lower()
+            in ("1", "true", "yes", "on")
+        )
+        self._lora_stream: Optional[torch.cuda.Stream] = None
         if hasattr(self.base_layer, "weight"):
             self.weight = self.base_layer.weight
 
@@ -51,6 +57,37 @@ class BaseLayerWithLoRA(nn.Module):
 
     def slice_lora_b_weights(self, B: torch.Tensor, tp_rank: int):
         pass
+
+    def _use_lora_parallel_stream(self, x: torch.Tensor) -> bool:
+        batch_info = getattr(self.lora_backend, "batch_info", None)
+        return (
+            self.lora_parallel_streams
+            and x.is_cuda
+            and getattr(batch_info, "has_active_lora", False)
+            and getattr(batch_info, "is_decode", False)
+        )
+
+    def _apply_lora_this_pass(self) -> bool:
+        """Whether to apply the LoRA delta on this forward pass.
+
+        LoRA is applied during *decode* only. Prefill runs the base weights so
+        the piecewise CUDA graph (which captures prefill) never traces LoRA ops.
+        That keeps prefill torch.compile-able and on the CUDA graph: otherwise
+        Dynamo guards on the per-batch LoRA segment metadata
+        (`batch_info.bs` / `num_segments`, captured at bs==1) and recompiles the
+        moment a real prefill with a different batch size is replayed, tripping
+        the "PCG capture stream is not set" assertion. Decode keeps the LoRA
+        patch via the regular (per-batch) CUDA graph runner.
+        """
+        if not self.set_lora:
+            return False
+        batch_info = getattr(self.lora_backend, "batch_info", None)
+        return bool(getattr(batch_info, "is_decode", False))
+
+    def _get_lora_stream(self) -> torch.cuda.Stream:
+        if self._lora_stream is None:
+            self._lora_stream = torch.cuda.Stream()
+        return self._lora_stream
 
 
 class VocabParallelEmbeddingWithLoRA(BaseLayerWithLoRA):
@@ -197,8 +234,8 @@ class VocabParallelEmbeddingWithLoRA(BaseLayerWithLoRA):
         ):
             base_output = self.extra_token_embedding(input_, base_output)
 
-        # Apply LoRA if configured
-        if self.set_lora:
+        # Apply LoRA if configured (decode only; prefill stays LoRA-free)
+        if self._apply_lora_this_pass():
             # The backend's run_lora_a_embedding now handles both regular
             # and extra tokens efficiently with CUDA graph support
             base_output = self.apply_lora(base_output, input_, batch_info)
@@ -358,8 +395,8 @@ class ParallelLMHeadWithLoRA(BaseLayerWithLoRA):
             hidden_states, self.weight, bias=getattr(self.base_layer, "bias", None)
         )
 
-        # Apply LoRA if set
-        if self.set_lora:
+        # Apply LoRA if set (decode only; prefill stays LoRA-free)
+        if self._apply_lora_this_pass():
             base_output = self.apply_lora(base_output, hidden_states)
 
         return base_output
@@ -439,12 +476,24 @@ class ColumnParallelLinearWithLoRA(BaseLayerWithLoRA):
     def forward(self, input_: torch.Tensor):
         # duplicate the logic in ColumnParallelLinear
         bias = self.base_layer.bias if not self.base_layer.skip_bias_add else None
+        lora_output = None
+        if self.set_lora and self._use_lora_parallel_stream(input_):
+            current_stream = torch.cuda.current_stream(input_.device)
+            lora_stream = self._get_lora_stream()
+            lora_stream.wait_stream(current_stream)
+            with torch.cuda.stream(lora_stream):
+                lora_output = self.apply_lora(None, input_)
+
         output_parallel = self.base_layer.quant_method.apply(
             self.base_layer, input_, bias
         )
 
-        if self.set_lora:
-            output_parallel = self.apply_lora(output_parallel, input_)
+        if self._apply_lora_this_pass():
+            if lora_output is None:
+                output_parallel = self.apply_lora(output_parallel, input_)
+            else:
+                torch.cuda.current_stream(input_.device).wait_stream(lora_stream)
+                output_parallel = output_parallel + lora_output
 
         if self.base_layer.gather_output:
             output = tensor_model_parallel_all_gather(output_parallel)
@@ -644,6 +693,22 @@ class RowParallelLinearWithLoRA(BaseLayerWithLoRA):
             if (self.base_layer.tp_rank > 0 or self.base_layer.skip_bias_add)
             else self.base_layer.bias
         )
+        lora_output_parallel = None
+        if (
+            self.set_lora
+            and not (
+                self.base_layer.reduce_results
+                and self.base_layer.tp_size > 1
+                and not skip_all_reduce
+            )
+            and self._use_lora_parallel_stream(input_parallel)
+        ):
+            current_stream = torch.cuda.current_stream(input_parallel.device)
+            lora_stream = self._get_lora_stream()
+            lora_stream.wait_stream(current_stream)
+            with torch.cuda.stream(lora_stream):
+                lora_output_parallel = self.apply_lora(None, input_parallel)
+
         output_parallel = self.base_layer.quant_method.apply(
             self.base_layer, input_parallel, bias=bias_
         )
@@ -654,7 +719,7 @@ class RowParallelLinearWithLoRA(BaseLayerWithLoRA):
             and not skip_all_reduce
         )
 
-        if self.set_lora and should_reduce:
+        if self._apply_lora_this_pass() and should_reduce:
             lora_a_output = self.lora_backend.run_lora_a_sgemm(
                 input_parallel, self.A_buffer
             )
@@ -667,8 +732,14 @@ class RowParallelLinearWithLoRA(BaseLayerWithLoRA):
                 base_output=output_,
             )
         else:
-            if self.set_lora:
-                output_parallel = self.apply_lora(output_parallel, input_parallel)
+            if self._apply_lora_this_pass():
+                if lora_output_parallel is None:
+                    output_parallel = self.apply_lora(output_parallel, input_parallel)
+                else:
+                    torch.cuda.current_stream(input_parallel.device).wait_stream(
+                        lora_stream
+                    )
+                    output_parallel = output_parallel + lora_output_parallel
             if should_reduce:
                 output_ = tensor_model_parallel_all_reduce(output_parallel)
             else:
@@ -763,9 +834,25 @@ class ReplicatedLinearWithLoRA(BaseLayerWithLoRA):
 
     def forward(self, x: torch.Tensor):
         bias = self.base_layer.bias if not self.base_layer.skip_bias_add else None
+        lora_output = None
+        if (
+            self.set_lora
+            and self.B_first is None
+            and self._use_lora_parallel_stream(x)
+        ):
+            current_stream = torch.cuda.current_stream(x.device)
+            lora_stream = self._get_lora_stream()
+            lora_stream.wait_stream(current_stream)
+            with torch.cuda.stream(lora_stream):
+                lora_output = self.apply_lora(None, x)
+
         output = self.base_layer.quant_method.apply(self.base_layer, x, bias)
-        if self.set_lora:
-            output = self.apply_lora(output, x)
+        if self._apply_lora_this_pass():
+            if lora_output is None:
+                output = self.apply_lora(output, x)
+            else:
+                torch.cuda.current_stream(x.device).wait_stream(lora_stream)
+                output = output + lora_output
         output_bias = self.base_layer.bias if self.base_layer.skip_bias_add else None
         return output, output_bias
 

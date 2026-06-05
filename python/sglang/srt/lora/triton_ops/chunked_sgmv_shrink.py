@@ -1,3 +1,5 @@
+from typing import Optional
+
 import torch
 import triton
 import triton.language as tl
@@ -149,28 +151,81 @@ def chunked_sgmv_lora_shrink_forward(
     assert x.shape[-1] == K
 
     num_segments = batch_info.num_segments
-    grid = (
-        triton.cdiv(N, BLOCK_N),
+    return _chunked_sgmv_lora_shrink_forward_compileable(
+        x,
+        weights,
+        batch_info.seg_indptr,
+        batch_info.weight_indices,
+        batch_info.lora_ranks,
+        batch_info.permutation,
+        num_segments,
         batch_info.bs if batch_info.use_cuda_graph else num_segments,
+        num_slices,
+        BLOCK_M,
+        BLOCK_N,
+        BLOCK_K,
     )
 
+
+@torch.library.custom_op("sglang::chunked_sgmv_lora_shrink", mutates_args=())
+def _chunked_sgmv_lora_shrink_forward_compileable(
+    x: torch.Tensor,
+    weights: torch.Tensor,
+    seg_indptr: torch.Tensor,
+    weight_indices: torch.Tensor,
+    lora_ranks: torch.Tensor,
+    permutation: Optional[torch.Tensor],
+    num_segments: int,
+    grid_segments: int,
+    num_slices: int,
+    block_m: int,
+    block_n: int,
+    block_k: int,
+) -> torch.Tensor:
+    S = x.shape[0]
+    N = weights.shape[1]
+    K = weights.shape[2]
     output = torch.empty((S, N), device=x.device, dtype=x.dtype)
+
+    grid = (
+        triton.cdiv(N, block_n),
+        grid_segments,
+    )
+
     _chunked_lora_shrink_kernel[grid](
         x=x,
         weights=weights,
         output=output,
-        seg_indptr=batch_info.seg_indptr,
-        weight_indices=batch_info.weight_indices,
-        lora_ranks=batch_info.lora_ranks,
-        permutation=batch_info.permutation,
+        seg_indptr=seg_indptr,
+        weight_indices=weight_indices,
+        lora_ranks=lora_ranks,
+        permutation=permutation,
         num_segs=num_segments,
         # constants
         N=N,
         K=K,
         NUM_SLICES=num_slices,
-        BLOCK_M=BLOCK_M,
-        BLOCK_N=BLOCK_N,
-        BLOCK_K=BLOCK_K,
+        BLOCK_M=block_m,
+        BLOCK_N=block_n,
+        BLOCK_K=block_k,
     )
 
     return output
+
+
+@_chunked_sgmv_lora_shrink_forward_compileable.register_fake
+def _chunked_sgmv_lora_shrink_forward_compileable_fake(
+    x,
+    weights,
+    seg_indptr,
+    weight_indices,
+    lora_ranks,
+    permutation,
+    num_segments,
+    grid_segments,
+    num_slices,
+    block_m,
+    block_n,
+    block_k,
+):
+    return x.new_empty((x.shape[0], weights.shape[1]))

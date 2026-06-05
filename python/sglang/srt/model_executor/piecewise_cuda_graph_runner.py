@@ -348,6 +348,7 @@ class PiecewiseCudaGraphRunner:
             if buffers.mamba_track_seqlens is not None
             else None
         )
+        lora_ids = self._capture_lora_ids(1)
         with torch.device(self.device):
             forward_batch = ForwardBatch(
                 forward_mode=ForwardMode.EXTEND,
@@ -388,8 +389,12 @@ class PiecewiseCudaGraphRunner:
                 capture_hidden_mode=CaptureHiddenMode.NULL,
                 num_token_non_padded=None,
                 global_forward_mode=ForwardMode.EXTEND,
-                lora_ids=None,
+                lora_ids=lora_ids,
             )
+
+        if lora_ids is not None:
+            with enable_piecewise_cuda_graph():
+                self.model_runner.lora_manager.prepare_lora_batch(forward_batch)
 
         # Attention backend
         self.model_runner.attn_backend.init_forward_metadata(forward_batch)
@@ -411,6 +416,15 @@ class PiecewiseCudaGraphRunner:
 
     def _cache_loc_dtype(self):
         return torch.int64 if not is_npu() else torch.int32
+
+    def _capture_lora_ids(self, batch_size: int):
+        if not self.model_runner.server_args.enable_lora:
+            return None
+        lora_paths = self.model_runner.server_args.lora_paths
+        capture_lora_id = lora_paths[0].lora_id if lora_paths else None
+        if capture_lora_id is not None:
+            self.model_runner.lora_manager.fetch_new_loras({capture_lora_id})
+        return [capture_lora_id] * batch_size
 
     def can_run(self, forward_batch: ForwardBatch):
         # Disable piecewise cuda graph for input embeddings
@@ -501,12 +515,7 @@ class PiecewiseCudaGraphRunner:
 
         global_dp_buffer_len = None
 
-        if self.model_runner.server_args.enable_lora:
-            # It is safe to capture CUDA graph using empty LoRA id, as the LoRA kernels will always be launched whenever
-            # `--enable-lora` is set to True (and return immediately if the LoRA id is empty for perf optimization).
-            lora_ids = [None] * bs
-        else:
-            lora_ids = None
+        lora_ids = self._capture_lora_ids(bs)
 
         with torch.device(self.device):
             forward_batch = ForwardBatch(
@@ -548,12 +557,13 @@ class PiecewiseCudaGraphRunner:
                 capture_hidden_mode=CaptureHiddenMode.NULL,
                 num_token_non_padded=None,
                 global_forward_mode=ForwardMode.EXTEND,
-                lora_ids=None,
+                lora_ids=lora_ids,
             )
             self.tbo_plugin.capture_one_batch_size(forward_batch, num_tokens=num_tokens)
 
         if lora_ids is not None:
-            self.model_runner.lora_manager.prepare_lora_batch(forward_batch)
+            with enable_piecewise_cuda_graph():
+                self.model_runner.lora_manager.prepare_lora_batch(forward_batch)
 
         self.model_runner.attn_backend.init_forward_metadata(forward_batch)
 
@@ -765,6 +775,13 @@ class PiecewiseCudaGraphRunner:
             # into call_begin_forward (via ForwardContext.num_tokens), eliminating the
             # need for a separate global and allowing pre-calculation of dummy-page count.
             static_forward_batch = self.replay_prepare(forward_batch, **kwargs)
+            if (
+                self.model_runner.server_args.enable_lora
+                and static_forward_batch.lora_ids is not None
+            ):
+                self.model_runner.lora_manager.prepare_lora_batch(
+                    static_forward_batch
+                )
             # Replay
             with set_forward_context(
                 static_forward_batch,
