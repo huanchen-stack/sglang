@@ -4,8 +4,9 @@ This directory is a new profiling track for rollout decoding throughput. It is
 separate from `.rollout-profile/qlora-kernel/`, which only measures individual
 projection kernels.
 
-The current files are fake deliverables used to confirm the experiment shape
-before implementing server/client measurement.
+The fake deliverables confirm the experiment shape. The real harness now lives
+next to them and measures decode-only throughput from SGLang's streaming
+`/generate` endpoint.
 
 ## Target
 
@@ -90,3 +91,85 @@ tokens_per_second = N * 256 / decode_time_seconds
 The main presentation question is whether selective QLoRA projection choices can
 approach the ideal int4 speedup while avoiding the LoRA overhead that hurts some
 projection/batch-size regions.
+
+## Real Harness
+
+Files:
+
+- `configs/qwen2.5-32b.json`: editable server/sweep config.
+- `decoding_client.py`: sends a fixed concurrent batch of streaming requests.
+- `run_decoding_sweep.py`: launches one SGLang server per scheme, runs the
+  client for each batch size, and writes `results/*.json`.
+- `plot_decoding.py`: converts `results/*.json` into
+  `decoding_throughput.csv`, `summary_table.md`, and
+  `decoding_throughput.png`.
+
+The decode metric is:
+
+```text
+decode_start = max(first streamed token timestamp across all requests)
+decode_end   = max(last streamed token timestamp across all requests)
+tok/s        = batch_size * 256 / (decode_end - decode_start)
+```
+
+This intentionally excludes prefill/TTFT from the throughput denominator.
+
+Before running, verify the paths in `configs/qwen2.5-32b.json`:
+
+- `bf16_merged.model_path`: BF16 model with LoRA already merged/effective, or a
+  normal BF16 baseline if you want no adapter.
+- `qlora_*.model_path`: GPTQ/int4 model served by Marlin.
+- `qlora_*.lora_path` and `--lora-paths default=...`: BF16 LoRA adapter path.
+
+Example dry run:
+
+```bash
+/data/huanchen/miniforge3/envs/sglang/bin/python \
+  .rollout-profile/qlora-decoding-throughput/run_decoding_sweep.py \
+  --config .rollout-profile/qlora-decoding-throughput/configs/qwen2.5-32b.json \
+  --scheme qlora_torch_twostream \
+  --batch-size 8 \
+  --gpu 0 \
+  --dry-run
+```
+
+Example real run for one GPU:
+
+```bash
+/data/huanchen/miniforge3/envs/sglang/bin/python \
+  .rollout-profile/qlora-decoding-throughput/run_decoding_sweep.py \
+  --config .rollout-profile/qlora-decoding-throughput/configs/qwen2.5-32b.json \
+  --gpu 0
+
+/data/huanchen/miniforge3/envs/sglang/bin/python \
+  .rollout-profile/qlora-decoding-throughput/plot_decoding.py
+```
+
+To fan schemes out across multiple GPUs, use `--gpus`; the runner assigns one
+scheme per GPU and increments ports from `--port`:
+
+```bash
+/data/huanchen/miniforge3/envs/sglang/bin/python \
+  .rollout-profile/qlora-decoding-throughput/run_decoding_sweep.py \
+  --config .rollout-profile/qlora-decoding-throughput/configs/qwen2.5-32b.json \
+  --gpus 0,1,2
+```
+
+The `qlora_torch_twostream` scheme runs SGLang with:
+
+```text
+--lora-backend torch_native
+SGLANG_LORA_TORCH_TWOSTREAM=1
+SGLANG_LORA_TWOSTREAM_RESERVE_SMS=1
+```
+
+The two-stream layer hook is experimental and opt-in. It is active only for
+`torch_native` LoRA backend and CUDA tensors; SGLang's default `csgmv` path is
+unchanged.
+
+Current limitation: this harness can compare executable whole-server policies
+(`bf16_merged`, `qlora_csgmv`, `qlora_torch_twostream`). A true single server
+that mixes BF16 merged projections and int4 QLoRA projections independently for
+`qkv/out/gate_up/down` would require a custom per-layer weight loading/quant
+policy, not just a benchmarking flag. The fake `selective_frontier` plots remain
+the intended presentation shape for that future mixed-weight implementation.

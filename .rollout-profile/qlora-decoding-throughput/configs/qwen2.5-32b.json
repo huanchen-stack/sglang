@@ -1,0 +1,54 @@
+{
+  "name": "qwen2.5-32b",
+  "decode_tokens": 256,
+  "batch_sizes": [1, 4, 8, 16, 32, 64, 128, 256, 512],
+  "warmup_batches": 1,
+  "prompt": "Briefly count upward:",
+  "common_server_args": [
+    "--attention-backend", "triton",
+    "--disable-radix-cache",
+    "--cuda-graph-max-bs", "512",
+    "--enable-torch-compile",
+    "--torch-compile-max-bs", "512"
+  ],
+  "extra_request_body": {},
+  "default_schemes": [
+    "bf16_merged",
+    "qlora_csgmv",
+    "qlora_torch_twostream"
+  ],
+  "schemes": {
+    "bf16_merged": {
+      "model_path": "Qwen/Qwen2.5-32B-Instruct",
+      "server_args": [],
+      "env": {}
+    },
+    "qlora_csgmv": {
+      "model_path": "Qwen/Qwen2.5-32B-Instruct-GPTQ-Int4",
+      "lora_path": "/data/huanchen/._delete/adapters/qwen2.5-32b_rank16_zero_bf16",
+      "server_args": [
+        "--enable-lora",
+        "--lora-backend", "csgmv",
+        "--lora-paths", "default=/data/huanchen/._delete/adapters/qwen2.5-32b_rank16_zero_bf16",
+        "--max-lora-rank", "16",
+        "--max-loras-per-batch", "1"
+      ],
+      "env": {}
+    },
+    "qlora_torch_twostream": {
+      "model_path": "Qwen/Qwen2.5-32B-Instruct-GPTQ-Int4",
+      "lora_path": "/data/huanchen/._delete/adapters/qwen2.5-32b_rank16_zero_bf16",
+      "server_args": [
+        "--enable-lora",
+        "--lora-backend", "torch_native",
+        "--lora-paths", "default=/data/huanchen/._delete/adapters/qwen2.5-32b_rank16_zero_bf16",
+        "--max-lora-rank", "16",
+        "--max-loras-per-batch", "1"
+      ],
+      "env": {
+        "SGLANG_LORA_TORCH_TWOSTREAM": "1",
+        "SGLANG_LORA_TWOSTREAM_RESERVE_SMS": "1"
+      }
+    }
+  }
+}
