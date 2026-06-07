@@ -21,6 +21,8 @@
 
 #pragma once
 
+#include <cstdlib>
+
 #include <sgl_kernel/tensor.h>
 
 #include <sgl_kernel/scalar_type.hpp>
@@ -957,6 +959,12 @@ void gptq_marlin_gemm(
 
   int sms = -1;
   RuntimeDeviceCheck(cudaDeviceGetAttribute(&sms, cudaDevAttrMultiProcessorCount, dev));
+  if (const char* env = std::getenv("SGLANG_MARLIN_RESERVE_SMS")) {
+    int reserve_sms = std::atoi(env);
+    if (reserve_sms > 0) {
+      sms = sms > reserve_sms ? sms - reserve_sms : 1;
+    }
+  }
 
   RuntimeCheck(
       workspace.size(0) >= sms, "workspace.size(0) = ", workspace.size(0), " is below min_workspace_size = ", sms);

@@ -19,7 +19,7 @@ _MAX_THREAD_N = 256
 def _jit_gptq_marlin_module(dtype: torch.dtype) -> Module:
     args = make_cpp_args(dtype)
     return load_jit(
-        "gptq_marlin",
+        "gptq_marlin_sms_reserve",
         *args,
         cuda_files=["gemm/marlin/gptq_marlin.cuh"],
         cuda_wrappers=[("gptq_marlin_gemm", f"gptq_marlin_gemm<{args}>")],
