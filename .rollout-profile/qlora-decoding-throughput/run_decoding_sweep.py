@@ -22,7 +22,7 @@ CLIENT = OUT_DIR / "decoding_client.py"
 class SchemeConfig:
     name: str
     model_path: str
-    lora_path: str | None
+    request_lora_path: str | None
     server_args: list[str]
     env: dict[str, str]
 
@@ -39,7 +39,7 @@ def scheme_from_config(raw: dict, name: str) -> SchemeConfig:
     return SchemeConfig(
         name=name,
         model_path=item["model_path"],
-        lora_path=item.get("lora_path"),
+        request_lora_path=item.get("request_lora_path", item.get("lora_path")),
         server_args=list(item.get("server_args", [])),
         env={str(k): str(v) for k, v in item.get("env", {}).items()},
     )
@@ -88,6 +88,7 @@ def run_client(
     decode_tokens: int,
     prompt: str,
     warmup_batches: int,
+    ready_timeout_s: float,
     output: Path,
     extra_request_body: dict,
 ) -> None:
@@ -106,13 +107,15 @@ def run_client(
         prompt,
         "--warmup-batches",
         str(warmup_batches),
+        "--ready-timeout-s",
+        str(ready_timeout_s),
         "--extra-request-body",
         json.dumps(extra_request_body),
         "--output",
         str(output),
     ]
-    if scheme.lora_path:
-        cmd.extend(["--lora-path", scheme.lora_path])
+    if scheme.request_lora_path:
+        cmd.extend(["--lora-path", scheme.request_lora_path])
     subprocess.run(cmd, check=True)
 
 
@@ -128,6 +131,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--decode-tokens", type=int, default=None)
     parser.add_argument("--prompt", default=None)
     parser.add_argument("--warmup-batches", type=int, default=None)
+    parser.add_argument("--ready-timeout-s", type=float, default=None)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=30000)
     parser.add_argument("--base-url", default=None, help="Attach to an existing server.")
@@ -174,6 +178,8 @@ def run_parallel_scheme_workers(args: argparse.Namespace, raw: dict) -> None:
             cmd.extend(["--prompt", args.prompt])
         if args.warmup_batches is not None:
             cmd.extend(["--warmup-batches", str(args.warmup_batches)])
+        if args.ready_timeout_s is not None:
+            cmd.extend(["--ready-timeout-s", str(args.ready_timeout_s)])
         if args.no_launch:
             cmd.append("--no-launch")
         if args.dry_run:
@@ -206,6 +212,11 @@ def main() -> None:
         args.warmup_batches
         if args.warmup_batches is not None
         else raw.get("warmup_batches", 1)
+    )
+    ready_timeout_s = float(
+        args.ready_timeout_s
+        if args.ready_timeout_s is not None
+        else raw.get("ready_timeout_s", 1800.0)
     )
     batch_sizes = args.batch_size or list(raw.get("batch_sizes", [1, 4, 8, 16]))
     scheme_names = args.scheme or list(raw.get("default_schemes", raw.get("schemes", {})))
@@ -268,6 +279,7 @@ def main() -> None:
                     decode_tokens=decode_tokens,
                     prompt=prompt,
                     warmup_batches=warmup_batches,
+                    ready_timeout_s=ready_timeout_s,
                     output=output,
                     extra_request_body=extra_request_body,
                 )

@@ -64,6 +64,10 @@ class LoRABatchInfo:
     # Computed from Python lists in prepare_lora_batch to avoid GPU sync.
     has_active_lora: bool = False
 
+    # CPU-side flag: True for decode-mode batches. The experimental
+    # two-stream LoRA path is decode-only; prefill keeps the base path.
+    is_decode: bool = False
+
     # Per-request segment indptrs, shape (bs + 1,). Required by MoE virtual
     # experts which map tokens to requests regardless of the dense-LoRA
     # backend's internal segmentation.  For the triton backend these are

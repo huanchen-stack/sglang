@@ -1,0 +1,4 @@
+results/
+results_*/
+smoke_results/
+*.server.log

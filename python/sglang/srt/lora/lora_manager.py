@@ -335,6 +335,7 @@ class LoRAManager:
         self.lora_backend.batch_info.has_active_lora = any(
             lora_ranks[wi] > 0 for wi in weight_indices
         )
+        self.lora_backend.batch_info.is_decode = forward_batch.forward_mode.is_decode()
 
     def update_lora_info(self):
         """

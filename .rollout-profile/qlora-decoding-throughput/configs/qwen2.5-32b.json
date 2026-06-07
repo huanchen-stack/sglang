@@ -3,6 +3,7 @@
   "decode_tokens": 256,
   "batch_sizes": [1, 4, 8, 16, 32, 64, 128, 256, 512],
   "warmup_batches": 1,
+  "ready_timeout_s": 1800,
   "prompt": "Briefly count upward:",
   "common_server_args": [
     "--attention-backend", "triton",
@@ -26,6 +27,7 @@
     "qlora_csgmv": {
       "model_path": "Qwen/Qwen2.5-32B-Instruct-GPTQ-Int4",
       "lora_path": "/data/huanchen/._delete/adapters/qwen2.5-32b_rank16_zero_bf16",
+      "request_lora_path": "default",
       "server_args": [
         "--enable-lora",
         "--lora-backend", "csgmv",
@@ -38,6 +40,7 @@
     "qlora_torch_twostream": {
       "model_path": "Qwen/Qwen2.5-32B-Instruct-GPTQ-Int4",
       "lora_path": "/data/huanchen/._delete/adapters/qwen2.5-32b_rank16_zero_bf16",
+      "request_lora_path": "default",
       "server_args": [
         "--enable-lora",
         "--lora-backend", "torch_native",
@@ -47,7 +50,8 @@
       ],
       "env": {
         "SGLANG_LORA_TORCH_TWOSTREAM": "1",
-        "SGLANG_LORA_TWOSTREAM_RESERVE_SMS": "1"
+        "SGLANG_LORA_TWOSTREAM_RESERVE_SMS": "1",
+        "SGLANG_MARLIN_RESERVE_SMS": "1"
       }
     }
   }

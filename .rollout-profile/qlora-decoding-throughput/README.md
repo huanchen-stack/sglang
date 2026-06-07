@@ -114,6 +114,16 @@ tok/s        = batch_size * 256 / (decode_end - decode_start)
 
 This intentionally excludes prefill/TTFT from the throughput denominator.
 
+Important caveat: decode throughput is strongly coupled to KV-cache length, not
+only to the projection kernels. As rollout context grows, attention increasingly
+streams a large KV cache, which can become memory-bandwidth and capacity
+dominant. That long-tail regime can cap or even erase the throughput gain from
+faster int4/QLoRA projection paths. The first sweep should therefore report the
+prompt/KV length used for every data point, and a follow-up sweep should vary KV
+length explicitly. Otherwise the result may only show that model-weight loading
+or projection GEMMs are faster at short context, while the target long-CoT or
+agentic rollout workload is bounded by KV-cache traffic.
+
 Before running, verify the paths in `configs/qwen2.5-32b.json`:
 
 - `bf16_merged.model_path`: BF16 model with LoRA already merged/effective, or a
@@ -161,11 +171,15 @@ The `qlora_torch_twostream` scheme runs SGLang with:
 --lora-backend torch_native
 SGLANG_LORA_TORCH_TWOSTREAM=1
 SGLANG_LORA_TWOSTREAM_RESERVE_SMS=1
+SGLANG_MARLIN_RESERVE_SMS=1
 ```
 
 The two-stream layer hook is experimental and opt-in. It is active only for
-`torch_native` LoRA backend and CUDA tensors; SGLang's default `csgmv` path is
-unchanged.
+`torch_native` LoRA backend, active decode LoRA batches, and CUDA tensors. The
+LoRA patch is still implemented through torch-native matmuls so it can run under
+`--enable-torch-compile` and CUDA graph capture. SM reservation is applied by the
+server environment for this scheme only; the forward path does not mutate env
+vars. SGLang's default `csgmv` path is unchanged.
 
 Current limitation: this harness can compare executable whole-server policies
 (`bf16_merged`, `qlora_csgmv`, `qlora_torch_twostream`). A true single server

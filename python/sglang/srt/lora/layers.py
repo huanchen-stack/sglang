@@ -1,6 +1,5 @@
 import os
-from contextlib import contextmanager
-from typing import Callable, Dict, Optional, Union
+from typing import Dict, Optional, Union
 
 import torch
 import torch.nn.functional as F
@@ -44,6 +43,10 @@ class BaseLayerWithLoRA(nn.Module):
         if hasattr(self.base_layer, "bias") and self.base_layer.bias is not None:
             self.bias = self.base_layer.bias
         self._lora_twostream_side_stream: Optional[torch.cuda.Stream] = None
+        self.lora_torch_twostream: bool = (
+            os.environ.get("SGLANG_LORA_TORCH_TWOSTREAM", "0").lower()
+            in ("1", "true", "yes", "on")
+        )
 
     def forward(self, x: torch.Tensor):
         return self.base_layer.forward(x)
@@ -58,53 +61,25 @@ class BaseLayerWithLoRA(nn.Module):
         pass
 
     def _use_torch_twostream_lora(self, x: torch.Tensor) -> bool:
-        if os.environ.get("SGLANG_LORA_TORCH_TWOSTREAM", "0") != "1":
+        batch_info = getattr(self.lora_backend, "batch_info", None)
+        return (
+            self.lora_torch_twostream
+            and getattr(self.lora_backend, "name", None) == "torch_native"
+            and x.is_cuda
+            and getattr(batch_info, "has_active_lora", False)
+            and getattr(batch_info, "is_decode", False)
+        )
+
+    def _apply_lora_this_pass(self) -> bool:
+        if not self.set_lora:
             return False
-        if getattr(self.lora_backend, "name", None) != "torch_native":
-            return False
-        return x.is_cuda
+        batch_info = getattr(self.lora_backend, "batch_info", None)
+        return bool(getattr(batch_info, "is_decode", False))
 
-    @contextmanager
-    def _temporary_marlin_sm_reserve(self):
-        reserve_sms = os.environ.get("SGLANG_LORA_TWOSTREAM_RESERVE_SMS")
-        if not reserve_sms:
-            yield
-            return
-
-        previous = os.environ.get("SGLANG_MARLIN_RESERVE_SMS")
-        try:
-            os.environ["SGLANG_MARLIN_RESERVE_SMS"] = reserve_sms
-            yield
-        finally:
-            if previous is None:
-                os.environ.pop("SGLANG_MARLIN_RESERVE_SMS", None)
-            else:
-                os.environ["SGLANG_MARLIN_RESERVE_SMS"] = previous
-
-    def _run_torch_twostream_lora(
-        self,
-        x: torch.Tensor,
-        base_fn: Callable[[], torch.Tensor],
-        lora_patch_fn: Callable[[], torch.Tensor],
-    ) -> torch.Tensor:
-        if not self._use_torch_twostream_lora(x):
-            base_output = base_fn()
-            return base_output + lora_patch_fn()
-
-        device = x.device
+    def _get_lora_stream(self, device: torch.device) -> torch.cuda.Stream:
         if self._lora_twostream_side_stream is None:
             self._lora_twostream_side_stream = torch.cuda.Stream(device=device)
-
-        current_stream = torch.cuda.current_stream(device)
-        self._lora_twostream_side_stream.wait_stream(current_stream)
-        with torch.cuda.stream(self._lora_twostream_side_stream):
-            lora_output = lora_patch_fn()
-
-        with self._temporary_marlin_sm_reserve():
-            base_output = base_fn()
-
-        current_stream.wait_stream(self._lora_twostream_side_stream)
-        return base_output + lora_output
+        return self._lora_twostream_side_stream
 
 
 class VocabParallelEmbeddingWithLoRA(BaseLayerWithLoRA):
@@ -511,22 +486,25 @@ class ColumnParallelLinearWithLoRA(BaseLayerWithLoRA):
     def forward(self, input_: torch.Tensor):
         # duplicate the logic in ColumnParallelLinear
         bias = self.base_layer.bias if not self.base_layer.skip_bias_add else None
+        lora_output = None
 
         if self.set_lora and self._use_torch_twostream_lora(input_):
-            output_parallel = self._run_torch_twostream_lora(
-                input_,
-                lambda: self.base_layer.quant_method.apply(
-                    self.base_layer, input_, bias
-                ),
-                lambda: self.apply_lora(None, input_),
-            )
-        else:
-            output_parallel = self.base_layer.quant_method.apply(
-                self.base_layer, input_, bias
-            )
+            current_stream = torch.cuda.current_stream(input_.device)
+            lora_stream = self._get_lora_stream(input_.device)
+            lora_stream.wait_stream(current_stream)
+            with torch.cuda.stream(lora_stream):
+                lora_output = self.apply_lora(None, input_)
 
-            if self.set_lora:
+        output_parallel = self.base_layer.quant_method.apply(
+            self.base_layer, input_, bias
+        )
+
+        if self._apply_lora_this_pass():
+            if lora_output is None:
                 output_parallel = self.apply_lora(output_parallel, input_)
+            else:
+                torch.cuda.current_stream(input_.device).wait_stream(lora_stream)
+                output_parallel = output_parallel + lora_output
 
         if self.base_layer.gather_output:
             output = tensor_model_parallel_all_gather(output_parallel)
@@ -783,10 +761,7 @@ class RowParallelLinearWithLoRA(BaseLayerWithLoRA):
             if (self.base_layer.tp_rank > 0 or self.base_layer.skip_bias_add)
             else self.base_layer.bias
         )
-        def base_output_parallel():
-            return self.base_layer.quant_method.apply(
-                self.base_layer, input_parallel, bias=bias_
-            )
+        lora_output_parallel = None
 
         should_reduce = (
             self.base_layer.reduce_results
@@ -799,34 +774,42 @@ class RowParallelLinearWithLoRA(BaseLayerWithLoRA):
             and not should_reduce
             and self._use_torch_twostream_lora(input_parallel)
         ):
-            output_ = self._run_torch_twostream_lora(
-                input_parallel,
-                base_output_parallel,
-                lambda: self.apply_lora(None, input_parallel),
+            current_stream = torch.cuda.current_stream(input_parallel.device)
+            lora_stream = self._get_lora_stream(input_parallel.device)
+            lora_stream.wait_stream(current_stream)
+            with torch.cuda.stream(lora_stream):
+                lora_output_parallel = self.apply_lora(None, input_parallel)
+
+        output_parallel = self.base_layer.quant_method.apply(
+            self.base_layer, input_parallel, bias=bias_
+        )
+
+        if self._apply_lora_this_pass() and should_reduce:
+            lora_a_output = self.lora_backend.run_lora_a_sgemm(
+                input_parallel, self.A_buffer
+            )
+            output_ = tensor_model_parallel_all_reduce(output_parallel)
+            lora_a_output = tensor_model_parallel_all_reduce(lora_a_output)
+            output_ = self.lora_backend.run_lora_b_sgemm(
+                x=lora_a_output,
+                weights=self.B_buffer,
+                output_offset=self.output_offset,
+                output_offset_cpu=self.output_offset_cpu,
+                base_output=output_,
             )
         else:
-            output_parallel = base_output_parallel()
-
-            if self.set_lora and should_reduce:
-                lora_a_output = self.lora_backend.run_lora_a_sgemm(
-                    input_parallel, self.A_buffer
-                )
-                output_ = tensor_model_parallel_all_reduce(output_parallel)
-                lora_a_output = tensor_model_parallel_all_reduce(lora_a_output)
-                output_ = self.lora_backend.run_lora_b_sgemm(
-                    x=lora_a_output,
-                    weights=self.B_buffer,
-                    output_offset=self.output_offset,
-                    output_offset_cpu=self.output_offset_cpu,
-                    base_output=output_,
-                )
-            else:
-                if self.set_lora:
+            if self._apply_lora_this_pass():
+                if lora_output_parallel is None:
                     output_parallel = self.apply_lora(output_parallel, input_parallel)
-                if should_reduce:
-                    output_ = tensor_model_parallel_all_reduce(output_parallel)
                 else:
-                    output_ = output_parallel
+                    torch.cuda.current_stream(input_parallel.device).wait_stream(
+                        lora_stream
+                    )
+                    output_parallel = output_parallel + lora_output_parallel
+            if should_reduce:
+                output_ = tensor_model_parallel_all_reduce(output_parallel)
+            else:
+                output_ = output_parallel
 
         output_bias = self.base_layer.bias if self.base_layer.skip_bias_add else None
         return output_, output_bias
