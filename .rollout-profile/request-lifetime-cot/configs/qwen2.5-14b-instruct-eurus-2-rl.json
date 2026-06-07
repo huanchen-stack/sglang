@@ -1,0 +1,23 @@
+{
+  "name": "qwen2.5-14b-instruct-eurus-2-rl",
+  "model_path": "Qwen/Qwen2.5-14B-Instruct",
+  "served_model_name": "qwen2.5-14b-instruct",
+  "dataset_path": "/data/huanchen/sglang/.rollout-profile/request-lifetime-cot/datasets/eurus-2-rl-qwen2.5-14b-instruct.jsonl",
+  "dataset_name": "PRIME-RL/Eurus-2-RL-Data",
+  "batch_sizes": [128, 256, 512],
+  "max_new_tokens": 32768,
+  "temperature": 0.9,
+  "top_p": 0.95,
+  "top_k": 20,
+  "stream_interval": 64,
+  "stream_idle_timeout_s": 300,
+  "tp_size": 4,
+  "gpus": "0,1,2,3",
+  "dtype": "bfloat16",
+  "context_length": 36864,
+  "mem_fraction_static": null,
+  "ready_timeout_s": 2400,
+  "request_timeout_s": 21600,
+  "common_server_args": ["--attention-backend", "triton"],
+  "prompt_suffix": ""
+}

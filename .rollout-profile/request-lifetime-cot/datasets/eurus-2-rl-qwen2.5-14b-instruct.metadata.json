@@ -1,0 +1,58 @@
+{
+  "dataset": "PRIME-RL/Eurus-2-RL-Data",
+  "split": "train",
+  "tokenizer": "Qwen/Qwen2.5-14B-Instruct",
+  "output": ".rollout-profile/request-lifetime-cot/datasets/eurus-2-rl-qwen2.5-14b-instruct.jsonl",
+  "limit": 2048,
+  "written": 2048,
+  "scanned": 370095,
+  "seed": 0,
+  "shuffle_buffer": 100000,
+  "per_ability_limit": 1024,
+  "ability_counts": {
+    "math": 1024,
+    "code": 1024
+  },
+  "top_data_sources": [
+    [
+      "numina_cn_k12",
+      468
+    ],
+    [
+      "taco",
+      409
+    ],
+    [
+      "codecontests",
+      374
+    ],
+    [
+      "numina_synthetic_math",
+      295
+    ],
+    [
+      "numina_olympiads",
+      156
+    ],
+    [
+      "apps",
+      139
+    ],
+    [
+      "codeforces",
+      102
+    ],
+    [
+      "numina_synthetic_amc",
+      80
+    ],
+    [
+      "numina_aops_forum",
+      20
+    ],
+    [
+      "numina_amc_aime",
+      5
+    ]
+  ]
+}

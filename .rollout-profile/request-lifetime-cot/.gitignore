@@ -1,0 +1,32 @@
+__pycache__/
+*.py[cod]
+*.log
+*.server.log
+
+# The materialized prompt file is large and reproducible from the script.
+datasets/*.jsonl
+!datasets/*.metadata.json
+!datasets/.gitkeep
+
+# Keep curated lifecycle summaries and plots, but not raw streaming traces.
+results/**/server.log
+results/**/token_events.csv
+results/**/timeline_events.csv
+results/**/timeline_sampled.csv
+results/**/requests.json
+results/**/commands.json
+results/**/deprecated/
+results/**/*.csv
+results/**/*.json
+results/**/*.png
+results/**/*.pdf
+results/**/*.md
+!results/**/lifecycle.json
+!results/**/lifecycle.png
+!results/**/lifecycle.pdf
+!results/**/e2e_frontier_bin_estimate.csv
+!results/**/e2e_frontier_bin_estimate.json
+!results/**/e2e_frontier_bin_estimate.md
+!results/**/e2e_frontier_bin_estimate.png
+!results/**/e2e_frontier_bin_estimate.pdf
+!results/**/.gitkeep
