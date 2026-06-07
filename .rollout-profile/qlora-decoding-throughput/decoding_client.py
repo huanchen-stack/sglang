@@ -129,10 +129,16 @@ async def run_batch(
     decode_tokens: int,
     lora_path: str | None,
     warmup_batches: int,
+    connection_limit: int,
     extra_request_body: dict[str, Any],
 ) -> tuple[list[RequestTrace], dict[str, Any]]:
     timeout = aiohttp.ClientTimeout(total=6 * 60 * 60)
-    async with aiohttp.ClientSession(timeout=timeout, read_bufsize=10 * 1024**2) as session:
+    connector = aiohttp.TCPConnector(
+        limit=connection_limit, limit_per_host=connection_limit
+    )
+    async with aiohttp.ClientSession(
+        timeout=timeout, connector=connector, read_bufsize=10 * 1024**2
+    ) as session:
         for warmup_idx in range(warmup_batches):
             warmup = [
                 run_one_request(
@@ -231,6 +237,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lora-path", default=None)
     parser.add_argument("--warmup-batches", type=int, default=1)
     parser.add_argument("--ready-timeout-s", type=float, default=300.0)
+    parser.add_argument(
+        "--connection-limit",
+        type=int,
+        default=0,
+        help="aiohttp connector limit; 0 disables the cap so high batches are not split into 100-request waves.",
+    )
     parser.add_argument("--extra-request-body", default="{}")
     parser.add_argument("--output", type=Path, required=True)
     return parser.parse_args()
@@ -247,6 +259,7 @@ async def async_main() -> None:
         decode_tokens=args.decode_tokens,
         lora_path=args.lora_path,
         warmup_batches=args.warmup_batches,
+        connection_limit=args.connection_limit,
         extra_request_body=extra_request_body,
     )
     payload = {

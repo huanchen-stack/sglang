@@ -4,13 +4,18 @@ This directory is a new profiling track for rollout decoding throughput. It is
 separate from `.rollout-profile/qlora-kernel/`, which only measures individual
 projection kernels.
 
-The fake deliverables confirm the experiment shape. The real harness now lives
-next to them and measures decode-only throughput from SGLang's streaming
-`/generate` endpoint.
+The `frontier_*` deliverables are presentation mockups generated from the real
+14B serving sweep plus the kernel profile. The BF16 and all-QLoRA numbers come
+from `decoding_throughput.csv`; the per-projection mixed frontier is estimated
+from `.rollout-profile/qlora-kernel/deliverable/torch_twostream_vs_bf16_to512.json`
+because the current server can run whole-policy BF16 or whole-policy QLoRA, not
+per-projection mixed weights.
 
 ## Target
 
-Use `qwen2.5-32b` for the first real evaluation.
+Use `qwen2.5-14b` for the current evaluation. The 32B config remains available,
+but BF16 32B did not leave enough practical headroom for the 512-request sweep
+under this setup.
 
 For each decode batch size from the kernel deliverable:
 
@@ -52,27 +57,43 @@ The intended final result should include:
 - A selective frontier where each projection independently picks BF16 merged or
   QLoRA Torch two-stream for that batch size.
 
-## Fake Deliverables
+## Frontier Mockup Deliverables
 
-`make_fake_deliverable.py` creates synthetic data and plots to demonstrate the
-intended output shape:
+`make_frontier_deliverable.py` reads `decoding_throughput.csv` and the kernel
+profile, picks the faster mode for each projection and batch size, and writes
+presentation mockups:
 
-- `fake_decoding_throughput.json`
-- `fake_decoding_throughput.csv`
-- `fake_summary_table.md`
-- `fake_throughput.png`
-- `fake_speedup.png`
-- `fake_projection_policy.png`
+- `frontier_decoding_throughput.json`
+- `frontier_decoding_throughput.csv`
+- `frontier_summary_table.md`
+- `frontier_throughput.png`
+- `frontier_speedup.png`
+- `frontier_projection_policy.png`
 
 Run:
 
 ```bash
-/data/huanchen/miniforge3/envs/sglang/bin/python .rollout-profile/qlora-decoding-throughput/make_fake_deliverable.py
+/data/huanchen/miniforge3/envs/sglang/bin/python .rollout-profile/qlora-decoding-throughput/make_frontier_deliverable.py
 ```
+
+Current 14B kernel-guided per-projection policy:
+
+```text
+batch 1..32: all projections int4 + BF16 LoRA Torch two-stream
+batch 64: qkv/down/gate_up int4 + BF16 LoRA Torch two-stream, o BF16
+batch 128: down int4 + BF16 LoRA Torch two-stream, qkv/o/gate_up BF16
+batch 256: all projections BF16
+batch 512: qkv int4 + BF16 LoRA Torch two-stream, down/o/gate_up BF16
+```
+
+The mixed-throughput line is an estimate, not a new serving measurement. It
+adjusts the nearest measured whole-policy serving step time by the per-layer
+kernel latency delta. A true per-projection frontier still requires a mixed-
+weight serving path.
 
 ## Implementation Notes For Real Run
 
-The real implementation should reference the `rollout/explore` branch for the
+The real implementation should reference the `rollout/exploring` branch for the
 serving-code changes used to switch projection implementations and run the
 Torch two-stream LoRA path.
 
@@ -96,13 +117,22 @@ projection/batch-size regions.
 
 Files:
 
-- `configs/qwen2.5-32b.json`: editable server/sweep config.
+- `configs/qwen2.5-14b.json`: current 14B server/sweep config.
+- `configs/qwen2.5-32b.json`: archived editable 32B server/sweep config.
 - `decoding_client.py`: sends a fixed concurrent batch of streaming requests.
 - `run_decoding_sweep.py`: launches one SGLang server per scheme, runs the
-  client for each batch size, and writes `results/*.json`.
-- `plot_decoding.py`: converts `results/*.json` into
+  client for each batch size, and writes
+  `measurements_14b_current/*.json`.
+- `plot_decoding.py`: converts `measurements_14b_current/*.json` into
   `decoding_throughput.csv`, `summary_table.md`, and
   `decoding_throughput.png`.
+
+Directory layout:
+
+- `measurements_14b_current/`: raw JSONs and server logs for the current all-GPU
+  14B sweep used by the plots.
+- `deprecated/raw_runs/`: older 32B attempts, retry-only data, and superseded
+  14B raw sweeps. Do not use these for the current figures.
 
 The decode metric is:
 
@@ -130,7 +160,7 @@ length explicitly. Otherwise the result may only show that model-weight loading
 or projection GEMMs are faster at short context, while the target long-CoT or
 agentic rollout workload is bounded by KV-cache traffic.
 
-Before running, verify the paths in `configs/qwen2.5-32b.json`:
+Before running, verify the paths in `configs/qwen2.5-14b.json`:
 
 - `bf16_merged.model_path`: BF16 model with LoRA already merged/effective, or a
   normal BF16 baseline if you want no adapter.
@@ -142,7 +172,7 @@ Example dry run:
 ```bash
 /data/huanchen/miniforge3/envs/sglang/bin/python \
   .rollout-profile/qlora-decoding-throughput/run_decoding_sweep.py \
-  --config .rollout-profile/qlora-decoding-throughput/configs/qwen2.5-32b.json \
+  --config .rollout-profile/qlora-decoding-throughput/configs/qwen2.5-14b.json \
   --scheme qlora_torch_twostream \
   --batch-size 8 \
   --gpu 0 \
@@ -154,7 +184,7 @@ Example real run for one GPU:
 ```bash
 /data/huanchen/miniforge3/envs/sglang/bin/python \
   .rollout-profile/qlora-decoding-throughput/run_decoding_sweep.py \
-  --config .rollout-profile/qlora-decoding-throughput/configs/qwen2.5-32b.json \
+  --config .rollout-profile/qlora-decoding-throughput/configs/qwen2.5-14b.json \
   --gpu 0
 
 /data/huanchen/miniforge3/envs/sglang/bin/python \
@@ -167,7 +197,7 @@ scheme per GPU and increments ports from `--port`:
 ```bash
 /data/huanchen/miniforge3/envs/sglang/bin/python \
   .rollout-profile/qlora-decoding-throughput/run_decoding_sweep.py \
-  --config .rollout-profile/qlora-decoding-throughput/configs/qwen2.5-32b.json \
+  --config .rollout-profile/qlora-decoding-throughput/configs/qwen2.5-14b.json \
   --gpus 0,1,2
 ```
 

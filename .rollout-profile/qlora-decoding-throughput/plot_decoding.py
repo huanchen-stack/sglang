@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 OUT_DIR = Path(__file__).resolve().parent
-DEFAULT_RESULTS = OUT_DIR / "results"
+DEFAULT_RESULTS = OUT_DIR / "measurements_14b_current"
 SCHEME_LABELS = {
     "bf16_merged": "BF16 merged/no adapter patch",
     "qlora_csgmv": "Int4 + BF16 LoRA, SGLang csgmv",
@@ -164,7 +164,18 @@ def write_table(rows: list[dict], path: Path) -> None:
 def plot(rows: list[dict], out_path: Path) -> None:
     import matplotlib.pyplot as plt
 
-    fig, ax = plt.subplots(figsize=(9.5, 5.8))
+    plt.rcParams.update(
+        {
+            "font.size": 9,
+            "axes.titlesize": 11,
+            "axes.labelsize": 9,
+            "xtick.labelsize": 8,
+            "ytick.labelsize": 8,
+            "legend.fontsize": 8,
+            "lines.markersize": 4.5,
+        }
+    )
+    fig, ax = plt.subplots(figsize=(6.4, 3.8), constrained_layout=True)
     schemes = sorted({row["scheme"] for row in rows})
     for scheme in schemes:
         scheme_rows = sorted(
@@ -174,7 +185,7 @@ def plot(rows: list[dict], out_path: Path) -> None:
             [row["batch_size"] for row in scheme_rows],
             [row["decode_tok_s"] for row in scheme_rows],
             marker="o",
-            linewidth=2.3,
+            linewidth=1.9,
             label=SCHEME_LABELS.get(scheme, scheme),
         )
     ax.set_xscale("log", base=2)
@@ -184,10 +195,10 @@ def plot(rows: list[dict], out_path: Path) -> None:
     ax.set_xlabel("Decode batch size / concurrent requests")
     ax.set_ylabel("Decode throughput (tokens/s), full decode window")
     ax.set_title("QLoRA Rollout Decoding Throughput")
-    ax.grid(True, alpha=0.25)
-    ax.legend(frameon=False)
-    fig.tight_layout()
-    fig.savefig(out_path, dpi=180)
+    ax.grid(True, alpha=0.25, linewidth=0.6)
+    ax.legend(frameon=False, loc="upper left")
+    fig.savefig(out_path, dpi=300)
+    fig.savefig(out_path.with_suffix(".pdf"))
     plt.close(fig)
 
 

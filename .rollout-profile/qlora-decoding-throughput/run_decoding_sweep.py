@@ -124,7 +124,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--config",
         type=Path,
-        default=OUT_DIR / "configs" / "qwen2.5-32b.json",
+        default=OUT_DIR / "configs" / "qwen2.5-14b.json",
     )
     parser.add_argument("--scheme", action="append", default=None)
     parser.add_argument("--batch-size", type=int, action="append", default=None)
@@ -142,8 +142,19 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Comma-separated GPUs. Runs schemes in parallel, one scheme per GPU.",
     )
+    parser.add_argument(
+        "--parallel-jobs",
+        action="store_true",
+        help="With --gpus, run each scheme/batch pair as an independent GPU job.",
+    )
+    parser.add_argument(
+        "--extra-server-arg",
+        action="append",
+        default=[],
+        help="Extra launch_server argument appended after config args. Repeat for flag/value pairs.",
+    )
     parser.add_argument("--python", default=sys.executable)
-    parser.add_argument("--out-dir", type=Path, default=OUT_DIR / "results")
+    parser.add_argument("--out-dir", type=Path, default=OUT_DIR / "measurements_14b_current")
     parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args()
 
@@ -180,6 +191,8 @@ def run_parallel_scheme_workers(args: argparse.Namespace, raw: dict) -> None:
             cmd.extend(["--warmup-batches", str(args.warmup_batches)])
         if args.ready_timeout_s is not None:
             cmd.extend(["--ready-timeout-s", str(args.ready_timeout_s)])
+        for extra_arg in args.extra_server_arg or []:
+            cmd.append(f"--extra-server-arg={extra_arg}")
         if args.no_launch:
             cmd.append("--no-launch")
         if args.dry_run:
@@ -197,11 +210,99 @@ def run_parallel_scheme_workers(args: argparse.Namespace, raw: dict) -> None:
         raise SystemExit(f"parallel workers failed with codes: {failures}")
 
 
+def run_parallel_job_workers(args: argparse.Namespace, raw: dict) -> None:
+    gpus = [gpu.strip() for gpu in args.gpus.split(",") if gpu.strip()]
+    if not gpus:
+        raise ValueError("--gpus must contain at least one GPU id")
+
+    scheme_names = args.scheme or list(raw.get("default_schemes", raw.get("schemes", {})))
+    batch_sizes = args.batch_size or list(raw.get("batch_sizes", [1, 4, 8, 16]))
+    jobs = [
+        (scheme_name, int(batch_size))
+        for scheme_name in scheme_names
+        for batch_size in batch_sizes
+    ]
+
+    def build_job_cmd(idx: int, scheme_name: str, batch_size: int, gpu: str) -> list[str]:
+        cmd = [
+            args.python,
+            str(Path(__file__).resolve()),
+            "--config",
+            str(args.config),
+            "--scheme",
+            scheme_name,
+            "--batch-size",
+            str(batch_size),
+            "--gpu",
+            gpu,
+            "--port",
+            str(args.port + idx),
+            "--out-dir",
+            str(args.out_dir),
+            "--extra-server-arg=--cuda-graph-max-bs",
+            f"--extra-server-arg={batch_size}",
+            "--extra-server-arg=--torch-compile-max-bs",
+            f"--extra-server-arg={batch_size}",
+        ]
+        if args.decode_tokens is not None:
+            cmd.extend(["--decode-tokens", str(args.decode_tokens)])
+        if args.prompt is not None:
+            cmd.extend(["--prompt", args.prompt])
+        if args.warmup_batches is not None:
+            cmd.extend(["--warmup-batches", str(args.warmup_batches)])
+        if args.ready_timeout_s is not None:
+            cmd.extend(["--ready-timeout-s", str(args.ready_timeout_s)])
+        for extra_arg in args.extra_server_arg or []:
+            cmd.append(f"--extra-server-arg={extra_arg}")
+        if args.no_launch:
+            cmd.append("--no-launch")
+        if args.dry_run:
+            cmd.append("--dry-run")
+        return cmd
+
+    if args.dry_run:
+        for idx, (scheme_name, batch_size) in enumerate(jobs):
+            gpu = gpus[idx % len(gpus)]
+            cmd = build_job_cmd(idx, scheme_name, batch_size, gpu)
+            print(f"[gpu {gpu}] {' '.join(cmd)}", flush=True)
+        return
+
+    next_job = 0
+    active: list[tuple[subprocess.Popen, str]] = []
+    failures = []
+    while next_job < len(jobs) or active:
+        while next_job < len(jobs) and len(active) < len(gpus):
+            active_gpus = {gpu for _, gpu in active}
+            gpu = next(gpu for gpu in gpus if gpu not in active_gpus)
+            scheme_name, batch_size = jobs[next_job]
+            cmd = build_job_cmd(next_job, scheme_name, batch_size, gpu)
+            print(f"[gpu {gpu}] {' '.join(cmd)}", flush=True)
+            active.append((subprocess.Popen(cmd), gpu))
+            next_job += 1
+
+        still_active: list[tuple[subprocess.Popen, str]] = []
+        for proc, gpu in active:
+            returncode = proc.poll()
+            if returncode is None:
+                still_active.append((proc, gpu))
+            elif returncode != 0:
+                failures.append(returncode)
+        active = still_active
+        if active and next_job < len(jobs):
+            time.sleep(2.0)
+
+    if failures:
+        raise SystemExit(f"parallel jobs failed with codes: {failures}")
+
+
 def main() -> None:
     args = parse_args()
     raw = load_config(args.config)
     if args.gpus is not None:
-        run_parallel_scheme_workers(args, raw)
+        if args.parallel_jobs:
+            run_parallel_job_workers(args, raw)
+        else:
+            run_parallel_scheme_workers(args, raw)
         return
 
     decode_tokens = int(
@@ -221,6 +322,7 @@ def main() -> None:
     batch_sizes = args.batch_size or list(raw.get("batch_sizes", [1, 4, 8, 16]))
     scheme_names = args.scheme or list(raw.get("default_schemes", raw.get("schemes", {})))
     common_server_args = list(raw.get("common_server_args", []))
+    common_server_args.extend(args.extra_server_arg or [])
     extra_request_body = dict(raw.get("extra_request_body", {}))
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
@@ -229,7 +331,10 @@ def main() -> None:
         scheme = scheme_from_config(raw, scheme_name)
         base_url = args.base_url or f"http://{args.host}:{args.port}"
         proc = None
-        log_file = args.out_dir / f"{scheme.name}.server.log"
+        log_name = f"{scheme.name}.server.log"
+        if len(batch_sizes) == 1:
+            log_name = f"{scheme.name}.bs{batch_sizes[0]}.server.log"
+        log_file = args.out_dir / log_name
         env = os.environ.copy()
         env.update(scheme.env)
         if args.gpu is not None:
