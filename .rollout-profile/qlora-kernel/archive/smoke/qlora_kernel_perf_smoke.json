@@ -1,0 +1,216 @@
+{
+  "metadata": {
+    "fake": false,
+    "created_unix": 1780708628.9380047,
+    "config": {
+      "hidden_size": 4096,
+      "output_size": 11008,
+      "lora_rank": 16,
+      "lora_alpha": 16.0,
+      "dtype": "bf16",
+      "quant_type": "uint4b8",
+      "group_size": 128,
+      "act_order": false,
+      "warmup_iters": 1,
+      "measure_iters": 2,
+      "l2_flush_mib": 1,
+      "max_loras_per_batch": 8,
+      "max_lora_chunk_size": 16,
+      "activation_prewarm": true,
+      "torch_compile": true,
+      "cuda_graph": true,
+      "compile_mode": "default"
+    },
+    "model_configs": [
+      {
+        "model": "qwen2.5-14b",
+        "layers": 48,
+        "hidden_size": 5120,
+        "kv_out": 1024,
+        "intermediate_size": 13824,
+        "projections": [
+          {
+            "name": "qkv",
+            "kind": "qkv",
+            "in_features": 5120,
+            "out_features": 7168,
+            "slice_sizes": [
+              5120,
+              1024,
+              1024
+            ]
+          },
+          {
+            "name": "o",
+            "kind": "simple",
+            "in_features": 5120,
+            "out_features": 5120,
+            "slice_sizes": [
+              5120
+            ]
+          },
+          {
+            "name": "gate_up",
+            "kind": "gate_up",
+            "in_features": 5120,
+            "out_features": 27648,
+            "slice_sizes": [
+              13824,
+              13824
+            ]
+          },
+          {
+            "name": "down",
+            "kind": "simple",
+            "in_features": 13824,
+            "out_features": 5120,
+            "slice_sizes": [
+              5120
+            ]
+          }
+        ],
+        "lora_rank": 16,
+        "lora_alpha": 16.0,
+        "dtype": "bf16",
+        "quant_type": "uint4b8",
+        "group_size": 128
+      }
+    ],
+    "scheme_order": [
+      "bf16 dense base",
+      "int4 Marlin base",
+      "SGLang csgmv LoRA patch",
+      "SGLang QLoRA csgmv sequential",
+      "SGLang QLoRA csgmv two-stream"
+    ],
+    "research_summary": [
+      "SGLang default LoRA backend is csgmv/ChunkedSGMV.",
+      "This benchmark directly constructs LoRABatchInfo and calls the SGLang csgmv backend.",
+      "QKV and gate/up use fused SGLang LoRA projection groups.",
+      "csgmv rows use torch.compile backend='eager' to avoid Inductor compiling through custom Triton kernels.",
+      "Two-stream is still an experimental overlap comparison, not default SGLang behavior."
+    ]
+  },
+  "measurements": [
+    {
+      "model": "qwen2.5-14b",
+      "projection": "qkv",
+      "projection_kind": "qkv",
+      "in_features": 5120,
+      "out_features": 7168,
+      "token_rows": 1,
+      "scheme": "bf16 dense base",
+      "latency_us": 64.51199948787689,
+      "median_us": 64.51199948787689,
+      "p20_us": 62.66879886388779,
+      "p80_us": 66.355200111866,
+      "min_us": 61.43999844789505,
+      "max_us": 67.58400052785873,
+      "warmup_iters": 1,
+      "measure_iters": 2,
+      "compiled": true,
+      "cuda_graph": true,
+      "l2_flush_mib": 1,
+      "activation_prewarm": true,
+      "fake": false,
+      "error": null,
+      "note": "Dense bf16 torch.matmul base projection."
+    },
+    {
+      "model": "qwen2.5-14b",
+      "projection": "qkv",
+      "projection_kind": "qkv",
+      "in_features": 5120,
+      "out_features": 7168,
+      "token_rows": 1,
+      "scheme": "int4 Marlin base",
+      "latency_us": 27.135999873280525,
+      "median_us": 27.135999873280525,
+      "p20_us": 26.214399561285973,
+      "p80_us": 28.057600185275078,
+      "min_us": 25.599999353289604,
+      "max_us": 28.672000393271446,
+      "warmup_iters": 1,
+      "measure_iters": 2,
+      "compiled": true,
+      "cuda_graph": true,
+      "l2_flush_mib": 1,
+      "activation_prewarm": true,
+      "fake": false,
+      "error": null,
+      "note": "SGLang GPTQ Marlin GEMM base projection only."
+    },
+    {
+      "model": "qwen2.5-14b",
+      "projection": "qkv",
+      "projection_kind": "qkv",
+      "in_features": 5120,
+      "out_features": 7168,
+      "token_rows": 1,
+      "scheme": "SGLang csgmv LoRA patch",
+      "latency_us": 31.74399957060814,
+      "median_us": 31.74399957060814,
+      "p20_us": 31.12959936261177,
+      "p80_us": 32.35839977860451,
+      "min_us": 30.719999223947525,
+      "max_us": 32.76799991726875,
+      "warmup_iters": 1,
+      "measure_iters": 2,
+      "compiled": true,
+      "cuda_graph": true,
+      "l2_flush_mib": 1,
+      "activation_prewarm": true,
+      "fake": false,
+      "error": null,
+      "note": "SGLang default ChunkedSGMV LoRA patch only."
+    },
+    {
+      "model": "qwen2.5-14b",
+      "projection": "qkv",
+      "projection_kind": "qkv",
+      "in_features": 5120,
+      "out_features": 7168,
+      "token_rows": 1,
+      "scheme": "SGLang QLoRA csgmv sequential",
+      "latency_us": 49.66400004923344,
+      "median_us": 49.66400004923344,
+      "p20_us": 48.74240085482597,
+      "p80_us": 50.5855992436409,
+      "min_us": 48.128001391887665,
+      "max_us": 51.19999870657921,
+      "warmup_iters": 1,
+      "measure_iters": 2,
+      "compiled": true,
+      "cuda_graph": true,
+      "l2_flush_mib": 1,
+      "activation_prewarm": true,
+      "fake": false,
+      "error": null,
+      "note": "Marlin base followed by SGLang csgmv LoRA accumulated into base output."
+    },
+    {
+      "model": "qwen2.5-14b",
+      "projection": "qkv",
+      "projection_kind": "qkv",
+      "in_features": 5120,
+      "out_features": 7168,
+      "token_rows": 1,
+      "scheme": "SGLang QLoRA csgmv two-stream",
+      "latency_us": 46.08000069856644,
+      "median_us": 46.08000069856644,
+      "p20_us": 46.08000069856644,
+      "p80_us": 46.08000069856644,
+      "min_us": 46.08000069856644,
+      "max_us": 46.08000069856644,
+      "warmup_iters": 1,
+      "measure_iters": 2,
+      "compiled": true,
+      "cuda_graph": true,
+      "l2_flush_mib": 1,
+      "activation_prewarm": true,
+      "fake": false,
+      "error": null,
+      "note": "SGLang csgmv LoRA patch on a side stream while Marlin base runs."
+    }
+  ]
+}

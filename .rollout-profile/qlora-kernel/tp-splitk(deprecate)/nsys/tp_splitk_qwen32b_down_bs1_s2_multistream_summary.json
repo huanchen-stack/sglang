@@ -1,0 +1,330 @@
+{
+  "sqlite": ".rollout-profile/qlora-kernel/nsys/tp_splitk_qwen32b_down_bs1_s2_multistream.sqlite",
+  "kernel_count": 365,
+  "selected_kernel_count": 6,
+  "summary": [
+    {
+      "name": "distribution_elementwise_grid_stride_kernel",
+      "stream": 7,
+      "count": 1,
+      "median_us": 9.76,
+      "min_us": 9.76,
+      "max_us": 9.76,
+      "mean_us": 9.76,
+      "grid": [
+        864,
+        1,
+        1
+      ],
+      "block": [
+        256,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "reduce_kernel",
+      "stream": 7,
+      "count": 1,
+      "median_us": 8.832,
+      "min_us": 8.832,
+      "max_us": 8.832,
+      "mean_us": 8.832,
+      "grid": [
+        1,
+        1,
+        1
+      ],
+      "block": [
+        512,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "dot_kernel",
+      "stream": 20,
+      "count": 11,
+      "median_us": 5.344,
+      "min_us": 5.248,
+      "max_us": 5.664,
+      "mean_us": 5.370181818181819,
+      "grid": [
+        54,
+        1,
+        16
+      ],
+      "block": [
+        128,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "dot_kernel",
+      "stream": 24,
+      "count": 11,
+      "median_us": 5.344,
+      "min_us": 5.184,
+      "max_us": 5.728,
+      "mean_us": 5.3643636363636364,
+      "grid": [
+        54,
+        1,
+        16
+      ],
+      "block": [
+        128,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "distribution_elementwise_grid_stride_kernel",
+      "stream": 7,
+      "count": 1,
+      "median_us": 5.312,
+      "min_us": 5.312,
+      "max_us": 5.312,
+      "mean_us": 5.312,
+      "grid": [
+        320,
+        1,
+        1
+      ],
+      "block": [
+        256,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "elementwise_kernel",
+      "stream": 7,
+      "count": 2,
+      "median_us": 5.231999999999999,
+      "min_us": 4.96,
+      "max_us": 5.504,
+      "mean_us": 5.231999999999999,
+      "grid": [
+        432,
+        1,
+        1
+      ],
+      "block": [
+        128,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "dot_kernel",
+      "stream": 7,
+      "count": 40,
+      "median_us": 5.056,
+      "min_us": 4.864,
+      "max_us": 5.888,
+      "mean_us": 5.1552,
+      "grid": [
+        54,
+        1,
+        16
+      ],
+      "block": [
+        128,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "dot_kernel",
+      "stream": 149,
+      "count": 40,
+      "median_us": 5.024,
+      "min_us": 4.8,
+      "max_us": 5.92,
+      "mean_us": 5.143974999999999,
+      "grid": [
+        54,
+        1,
+        16
+      ],
+      "block": [
+        128,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "distribution_elementwise_grid_stride_kernel",
+      "stream": 7,
+      "count": 1,
+      "median_us": 3.872,
+      "min_us": 3.872,
+      "max_us": 3.872,
+      "mean_us": 3.872,
+      "grid": [
+        108,
+        1,
+        1
+      ],
+      "block": [
+        256,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "kernel",
+      "stream": 7,
+      "count": 51,
+      "median_us": 3.104,
+      "min_us": 3.04,
+      "max_us": 3.904,
+      "mean_us": 3.2138039215686276,
+      "grid": [
+        40,
+        1,
+        1
+      ],
+      "block": [
+        2,
+        128,
+        1
+      ]
+    },
+    {
+      "name": "reduce_1Block_kernel",
+      "stream": 20,
+      "count": 11,
+      "median_us": 3.008,
+      "min_us": 2.976,
+      "max_us": 3.36,
+      "mean_us": 3.0458181818181815,
+      "grid": [
+        1,
+        1,
+        16
+      ],
+      "block": [
+        128,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "reduce_1Block_kernel",
+      "stream": 24,
+      "count": 11,
+      "median_us": 2.944,
+      "min_us": 2.912,
+      "max_us": 3.104,
+      "mean_us": 2.944,
+      "grid": [
+        1,
+        1,
+        16
+      ],
+      "block": [
+        128,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "vectorized_elementwise_kernel",
+      "stream": 28,
+      "count": 2,
+      "median_us": 2.688,
+      "min_us": 2.656,
+      "max_us": 2.72,
+      "mean_us": 2.688,
+      "grid": [
+        1,
+        1,
+        1
+      ],
+      "block": [
+        128,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "reduce_1Block_kernel",
+      "stream": 7,
+      "count": 40,
+      "median_us": 2.56,
+      "min_us": 2.528,
+      "max_us": 4.384,
+      "mean_us": 2.7064,
+      "grid": [
+        1,
+        1,
+        16
+      ],
+      "block": [
+        128,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "reduce_1Block_kernel",
+      "stream": 149,
+      "count": 40,
+      "median_us": 2.56,
+      "min_us": 2.56,
+      "max_us": 3.072,
+      "mean_us": 2.6584,
+      "grid": [
+        1,
+        1,
+        16
+      ],
+      "block": [
+        128,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "vectorized_elementwise_kernel",
+      "stream": 7,
+      "count": 51,
+      "median_us": 2.112,
+      "min_us": 2.08,
+      "max_us": 2.4,
+      "mean_us": 2.1207843137254905,
+      "grid": [
+        1,
+        1,
+        1
+      ],
+      "block": [
+        128,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "vectorized_elementwise_kernel",
+      "stream": 7,
+      "count": 51,
+      "median_us": 1.952,
+      "min_us": 1.952,
+      "max_us": 2.528,
+      "mean_us": 2.0774901960784313,
+      "grid": [
+        5,
+        1,
+        1
+      ],
+      "block": [
+        128,
+        1,
+        1
+      ]
+    }
+  ]
+}

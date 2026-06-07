@@ -1,0 +1,154 @@
+{
+  "metadata": {
+    "fake": false,
+    "created_unix": 1780809576.1929207,
+    "config": {
+      "hidden_size": 4096,
+      "output_size": 11008,
+      "lora_rank": 16,
+      "lora_alpha": 16.0,
+      "dtype": "bf16",
+      "quant_type": "uint4b8",
+      "group_size": 128,
+      "act_order": false,
+      "warmup_iters": 3,
+      "measure_iters": 5,
+      "l2_flush_mib": 96,
+      "max_loras_per_batch": 8,
+      "max_lora_chunk_size": 16,
+      "activation_prewarm": true,
+      "torch_compile": true,
+      "cuda_graph": true,
+      "compile_mode": "default",
+      "two_stream_reserve_sms": 1
+    },
+    "model_configs": [
+      {
+        "model": "qwen2.5-32b",
+        "layers": 64,
+        "hidden_size": 5120,
+        "kv_out": 1024,
+        "intermediate_size": 27648,
+        "projections": [
+          {
+            "name": "qkv",
+            "kind": "qkv",
+            "in_features": 5120,
+            "out_features": 7168,
+            "slice_sizes": [
+              5120,
+              1024,
+              1024
+            ]
+          },
+          {
+            "name": "o",
+            "kind": "simple",
+            "in_features": 5120,
+            "out_features": 5120,
+            "slice_sizes": [
+              5120
+            ]
+          },
+          {
+            "name": "gate_up",
+            "kind": "gate_up",
+            "in_features": 5120,
+            "out_features": 55296,
+            "slice_sizes": [
+              27648,
+              27648
+            ]
+          },
+          {
+            "name": "down",
+            "kind": "simple",
+            "in_features": 27648,
+            "out_features": 5120,
+            "slice_sizes": [
+              5120
+            ]
+          }
+        ],
+        "lora_rank": 16,
+        "lora_alpha": 16.0,
+        "dtype": "bf16",
+        "quant_type": "uint4b8",
+        "group_size": 128
+      }
+    ],
+    "scheme_order": [
+      "bf16 dense base",
+      "int4 Marlin base",
+      "SGLang csgmv LoRA patch",
+      "SGLang triton LoRA patch",
+      "Torch matmul LoRA patch",
+      "bf16 dense + csgmv sequential",
+      "bf16 dense + triton sequential",
+      "SGLang QLoRA csgmv sequential",
+      "SGLang QLoRA csgmv two-stream",
+      "SGLang QLoRA triton sequential",
+      "SGLang QLoRA triton two-stream",
+      "Torch QLoRA matmul sequential",
+      "Torch QLoRA matmul two-stream"
+    ],
+    "research_summary": [
+      "SGLang default LoRA backend is csgmv/ChunkedSGMV.",
+      "This benchmark directly constructs LoRABatchInfo and calls the SGLang csgmv backend.",
+      "QKV and gate/up use fused SGLang LoRA projection groups.",
+      "csgmv rows launch the SGLang backend directly inside CUDA Graph; base Marlin and dense callables use torch.compile.",
+      "Two-stream is still an experimental overlap comparison, not default SGLang behavior.",
+      "SM reservation is applied only inside two-stream Marlin callables; regular base and sequential paths clear SGLANG_MARLIN_RESERVE_SMS."
+    ]
+  },
+  "measurements": [
+    {
+      "model": "qwen2.5-32b",
+      "projection": "down",
+      "projection_kind": "simple",
+      "in_features": 27648,
+      "out_features": 5120,
+      "token_rows": 1,
+      "scheme": "bf16 dense + triton sequential",
+      "latency_us": 297.9840040206909,
+      "median_us": 297.9840040206909,
+      "p20_us": 296.75520062446594,
+      "p80_us": 300.23680329322815,
+      "min_us": 291.83998703956604,
+      "max_us": 309.2480003833771,
+      "warmup_iters": 3,
+      "measure_iters": 5,
+      "compiled": true,
+      "cuda_graph": true,
+      "l2_flush_mib": 96,
+      "activation_prewarm": true,
+      "fake": false,
+      "error": null,
+      "note": "Dense bf16 base followed by SGLang Triton segmented-GEMM LoRA accumulated into base output."
+    },
+    {
+      "model": "qwen2.5-32b",
+      "projection": "down",
+      "projection_kind": "simple",
+      "in_features": 27648,
+      "out_features": 5120,
+      "token_rows": 4,
+      "scheme": "bf16 dense + triton sequential",
+      "latency_us": 282.6240062713623,
+      "median_us": 282.6240062713623,
+      "p20_us": 279.3471932411194,
+      "p80_us": 283.23840498924255,
+      "min_us": 274.4320034980774,
+      "max_us": 285.69599986076355,
+      "warmup_iters": 3,
+      "measure_iters": 5,
+      "compiled": true,
+      "cuda_graph": true,
+      "l2_flush_mib": 96,
+      "activation_prewarm": true,
+      "fake": false,
+      "error": null,
+      "note": "Dense bf16 base followed by SGLang Triton segmented-GEMM LoRA accumulated into base output."
+    }
+  ]
+}

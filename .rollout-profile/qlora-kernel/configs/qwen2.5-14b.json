@@ -1,0 +1,42 @@
+{
+  "model": "qwen2.5-14b",
+  "layers": 48,
+  "hidden_size": 5120,
+  "kv_out": 1024,
+  "intermediate_size": 13824,
+  "lora_rank": 16,
+  "lora_alpha": 16.0,
+  "dtype": "bf16",
+  "quant_type": "uint4b8",
+  "group_size": 128,
+  "projections": [
+    {
+      "name": "qkv",
+      "kind": "qkv",
+      "in_features": 5120,
+      "out_features": 7168,
+      "slice_sizes": [5120, 1024, 1024]
+    },
+    {
+      "name": "o",
+      "kind": "simple",
+      "in_features": 5120,
+      "out_features": 5120,
+      "slice_sizes": [5120]
+    },
+    {
+      "name": "gate_up",
+      "kind": "gate_up",
+      "in_features": 5120,
+      "out_features": 27648,
+      "slice_sizes": [13824, 13824]
+    },
+    {
+      "name": "down",
+      "kind": "simple",
+      "in_features": 13824,
+      "out_features": 5120,
+      "slice_sizes": [5120]
+    }
+  ]
+}
