@@ -1,0 +1,10 @@
+batch_size,model,forced_decode_tokens_per_request,prefill_excluded,bf16_merged_tok_s,qlora_torch_twostream_tok_s,selective_frontier_tok_s,bf16_merged_decode_ms,qlora_torch_twostream_decode_ms,selective_frontier_decode_ms,qlora_speedup_vs_bf16,frontier_speedup_vs_bf16,select_qkv,select_out,select_gate_up,select_down
+1,qwen2.5-32b,256,True,118,178,185,2169.492,1438.202,1383.784,1.508,1.568,qlora,qlora,qlora,qlora
+4,qwen2.5-32b,256,True,442,646,682,2316.742,1585.139,1501.466,1.462,1.543,qlora,qlora,qlora,qlora
+8,qwen2.5-32b,256,True,842,1195,1280,2432.304,1713.808,1600.0,1.419,1.52,qlora,qlora,qlora,qlora
+16,qwen2.5-32b,256,True,1510,2035,2210,2712.583,2012.776,1853.394,1.348,1.464,qlora,qlora,qlora,qlora
+32,qwen2.5-32b,256,True,2575,3280,3560,3181.359,2497.561,2301.124,1.274,1.383,bf16,qlora,qlora,qlora
+64,qwen2.5-32b,256,True,4070,4740,5200,4025.553,3456.54,3150.769,1.165,1.278,bf16,bf16,qlora,qlora
+128,qwen2.5-32b,256,True,5700,5900,6620,5748.772,5553.898,4949.849,1.035,1.161,bf16,bf16,qlora,qlora
+256,qwen2.5-32b,256,True,6880,6500,7420,9525.581,10082.462,8832.345,0.945,1.078,bf16,bf16,qlora,bf16
+512,qwen2.5-32b,256,True,7450,6650,8060,17593.557,19710.075,16262.035,0.893,1.082,bf16,bf16,qlora,bf16
