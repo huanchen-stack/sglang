@@ -107,12 +107,18 @@ Files:
 The decode metric is:
 
 ```text
-decode_start = max(first streamed token timestamp across all requests)
+decode_start = min(first streamed token timestamp across all requests)
 decode_end   = max(last streamed token timestamp across all requests)
-tok/s        = batch_size * 256 / (decode_end - decode_start)
+tok/s        = observed generated tokens / (decode_end - decode_start)
 ```
 
-This intentionally excludes prefill/TTFT from the throughput denominator.
+This intentionally excludes prefill/TTFT before the first emitted decode token,
+but keeps the full decode window. Do not use `max(first_token_time)` as the
+decode start while still counting all generated tokens: at large batch sizes
+SGLang can stagger requests in waves, and that denominator/numerator mismatch
+artificially inflates throughput. The harness also reports an
+`all_started_decode_tok_s` diagnostic using `max(first_token_time)`, but it only
+counts token events after that timestamp.
 
 Important caveat: decode throughput is strongly coupled to KV-cache length, not
 only to the projection kernels. As rollout context grows, attention increasingly

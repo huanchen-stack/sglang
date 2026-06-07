@@ -170,30 +170,54 @@ async def run_batch(
             "error": f"{len(successful)}/{batch_size} requests completed successfully",
         }
 
-    decode_start = max(t.first_token_s for t in successful if t.first_token_s)
+    first_decode_start = min(t.first_token_s for t in successful if t.first_token_s)
+    all_started_decode_start = max(
+        t.first_token_s for t in successful if t.first_token_s
+    )
     decode_end = max(t.last_token_s for t in successful if t.last_token_s)
-    decode_time_s = max(decode_end - decode_start, 0.0)
-    inclusive_tokens = batch_size * decode_tokens
-    excluding_first_tokens = batch_size * max(decode_tokens - 1, 0)
+    full_decode_time_s = max(decode_end - first_decode_start, 0.0)
+    all_started_decode_time_s = max(decode_end - all_started_decode_start, 0.0)
+    observed_tokens = sum(t.output_len for t in successful)
+    tokens_after_all_started = sum(
+        1
+        for trace in successful
+        for _, timestamp in trace.token_timestamps_s
+        if timestamp >= all_started_decode_start
+    )
     latencies = [t.latency_s for t in successful]
     return traces, {
         "success": True,
         "batch_size": batch_size,
         "decode_tokens_per_request": decode_tokens,
         "completed_requests": len(successful),
-        "decode_start_s": decode_start,
+        "first_decode_start_s": first_decode_start,
+        "all_started_decode_start_s": all_started_decode_start,
+        "decode_start_s": first_decode_start,
         "decode_end_s": decode_end,
-        "decode_time_s": decode_time_s,
-        "decode_tok_s": inclusive_tokens / decode_time_s if decode_time_s > 0 else None,
-        "decode_tok_s_excluding_first_token": (
-            excluding_first_tokens / decode_time_s if decode_time_s > 0 else None
+        "decode_time_s": full_decode_time_s,
+        "decode_tok_s": (
+            observed_tokens / full_decode_time_s if full_decode_time_s > 0 else None
         ),
+        "full_decode_time_s": full_decode_time_s,
+        "full_decode_tok_s": (
+            observed_tokens / full_decode_time_s if full_decode_time_s > 0 else None
+        ),
+        "all_started_decode_time_s": all_started_decode_time_s,
+        "all_started_decode_tok_s": (
+            tokens_after_all_started / all_started_decode_time_s
+            if all_started_decode_time_s > 0
+            else None
+        ),
+        "tokens_after_all_started": tokens_after_all_started,
+        "observed_tokens": observed_tokens,
+        "first_token_spread_s": all_started_decode_start - first_decode_start,
         "mean_request_latency_s": statistics.mean(latencies),
         "median_request_latency_s": statistics.median(latencies),
         "min_output_len": min(t.output_len for t in successful),
         "max_output_len": max(t.output_len for t in successful),
         "prefill_excluded": True,
-        "global_decode_window": "max(first_token_time) to max(last_token_time)",
+        "global_decode_window": "min(first_token_time) to max(last_token_time)",
+        "all_started_decode_window": "max(first_token_time) to max(last_token_time)",
     }
 
 
