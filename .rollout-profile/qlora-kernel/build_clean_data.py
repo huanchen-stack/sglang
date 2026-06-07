@@ -70,9 +70,22 @@ def build(inputs: list[Path]) -> dict:
     base = load_payload(inputs[0])
     rows_by_key = {}
     sources = []
+    model_configs_by_name = {}
     for path in inputs:
         payload = load_payload(path)
         sources.append(str(path))
+        for model_config in payload.get("metadata", {}).get("model_configs", []):
+            name = model_config.get("model")
+            if name not in model_configs_by_name:
+                model_configs_by_name[name] = {**model_config, "projections": []}
+            known = {
+                projection.get("name")
+                for projection in model_configs_by_name[name].get("projections", [])
+            }
+            for projection in model_config.get("projections", []):
+                if projection.get("name") not in known:
+                    model_configs_by_name[name]["projections"].append(projection)
+                    known.add(projection.get("name"))
         for raw in payload.get("measurements", []):
             alias = ALIASES.get(raw.get("scheme"))
             if alias is None or raw.get("error"):
@@ -98,6 +111,8 @@ def build(inputs: list[Path]) -> dict:
             "scheme_order": SCHEME_ORDER,
             "research_summary": SUMMARY,
             "source_data": sources,
+            "model_configs": list(model_configs_by_name.values())
+            or base.get("metadata", {}).get("model_configs", []),
         },
         "measurements": rows,
     }

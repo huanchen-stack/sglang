@@ -1,0 +1,42 @@
+{
+  "model": "deepseek-r1-distill-qwen-7b",
+  "layers": 28,
+  "hidden_size": 3584,
+  "kv_out": 512,
+  "intermediate_size": 18944,
+  "lora_rank": 16,
+  "lora_alpha": 16.0,
+  "dtype": "bf16",
+  "quant_type": "uint4b8",
+  "group_size": 128,
+  "projections": [
+    {
+      "name": "qkv",
+      "kind": "qkv",
+      "in_features": 3584,
+      "out_features": 4608,
+      "slice_sizes": [3584, 512, 512]
+    },
+    {
+      "name": "o",
+      "kind": "simple",
+      "in_features": 3584,
+      "out_features": 3584,
+      "slice_sizes": [3584]
+    },
+    {
+      "name": "gate_up",
+      "kind": "gate_up",
+      "in_features": 3584,
+      "out_features": 37888,
+      "slice_sizes": [18944, 18944]
+    },
+    {
+      "name": "down",
+      "kind": "simple",
+      "in_features": 18944,
+      "out_features": 3584,
+      "slice_sizes": [3584]
+    }
+  ]
+}
