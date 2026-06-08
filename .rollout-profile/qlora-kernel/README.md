@@ -9,7 +9,11 @@ Active files in this directory:
 - `qlora_kernel_perf_clean.png`: active clean comparison plot.
 - `configs/`: model/projection shape configs.
 - `reserve_sweep_torch/`: focused SM-reservation sweep for the Torch LoRA two-stream path.
-- `deliverable/`: presentation plots and their backing datasets.
+- `deliverable/`: four self-contained comparison pairs:
+  `bf16_vs_int4.{json,png}`,
+  `bf16_vs_int4_csgmv_sequential.{json,png}`,
+  `bf16_vs_int4_torch_sequential.{json,png}`, and
+  `bf16_vs_int4_torch_2stream.{json,png}`.
 - `nsys/peek_nsys_graph.py`: helper for rendering Nsight Systems kernel timeline peeks.
 
 Clean plot line set:
@@ -19,6 +23,7 @@ Clean plot line set:
 - `bf16 + two-stream Torch LoRA`
 - `int4`
 - `int4 + sequential csgmv LoRA`
+- `int4 + sequential Torch LoRA`
 - `int4 + two-stream Torch LoRA`
 
 Archived/intermediate files:
@@ -33,6 +38,17 @@ To rebuild the active clean plot:
 ```bash
 /data/huanchen/miniforge3/envs/sglang/bin/python .rollout-profile/qlora-kernel/build_clean_data.py
 /data/huanchen/miniforge3/envs/sglang/bin/python .rollout-profile/qlora-kernel/lineplot.py --linear-y
+```
+
+To rerun only the Int4 + BF16 LoRA Torch comparison rows:
+
+```bash
+/data/huanchen/miniforge3/envs/sglang/bin/python .rollout-profile/qlora-kernel/benchmark.py \
+  --model-config .rollout-profile/qlora-kernel/configs/qwen2.5-14b.json \
+  --model-config .rollout-profile/qlora-kernel/configs/qwen2.5-32b.json \
+  --scheme "Torch QLoRA matmul sequential" \
+  --scheme "Torch QLoRA matmul two-stream" \
+  --output .rollout-profile/qlora-kernel/archive/raw-inputs/qlora_kernel_perf_torch_qlora_compare.json
 ```
 
 ## Rollout LoRA Interpretation

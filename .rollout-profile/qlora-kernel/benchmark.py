@@ -5,9 +5,9 @@ This benchmark simulates the SGLang runtime LoRA forwarding path for one
 projection group at a time:
 
 * base projection: bf16 dense or int4 GPTQ Marlin
-* LoRA patch: SGLang default ChunkedSGMV (`csgmv`) backend
-* QLoRA sequential: Marlin base, then csgmv LoRA accumulated into base output
-* QLoRA two-stream: csgmv LoRA patch on a side stream while Marlin base runs
+* LoRA patch: SGLang default ChunkedSGMV (`csgmv`) backend or plain BF16 Torch matmul
+* QLoRA sequential: Marlin base, then LoRA accumulated into base output
+* QLoRA two-stream: LoRA patch on a side stream while Marlin base runs
 
 For Qwen-style layers, the faithful SGLang projection groups are `qkv`, `o`,
 `gate_up`, and `down`. `qkv` and `gate_up` are fused in the LoRA wrapper.

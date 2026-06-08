@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Build clean QLoRA comparison data.
 
-Sequential LoRA uses SGLang csgmv.  The two-stream overlap line uses the
-Torch/cuBLAS LoRA patch path.
+Sequential LoRA includes both SGLang csgmv and plain Torch/cuBLAS matmul
+paths.  The two-stream overlap line uses the same Torch/cuBLAS LoRA patch path.
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ ALIASES = {
     "bf16 dense + csgmv sequential": "bf16 + sequential csgmv LoRA",
     "bf16 dense + torch matmul two-stream": "bf16 + two-stream Torch LoRA",
     "SGLang QLoRA csgmv sequential": "int4 + sequential csgmv LoRA",
+    "Torch QLoRA matmul sequential": "int4 + sequential Torch LoRA",
     "Torch QLoRA matmul two-stream": "int4 + two-stream Torch LoRA",
 }
 
@@ -36,12 +37,13 @@ SCHEME_ORDER = [
     "bf16 + two-stream Torch LoRA",
     "int4",
     "int4 + sequential csgmv LoRA",
+    "int4 + sequential Torch LoRA",
     "int4 + two-stream Torch LoRA",
 ]
 
 SUMMARY = [
-    "Clean comparison plot with sequential LoRA from SGLang csgmv and overlapped LoRA from Torch/cuBLAS.",
-    "Both BF16 and int4 bases include a csgmv sequential LoRA line and a Torch two-stream LoRA line.",
+    "Clean comparison plot with sequential LoRA from SGLang csgmv, sequential LoRA from Torch/cuBLAS, and overlapped LoRA from Torch/cuBLAS.",
+    "The int4 base includes csgmv sequential, Torch sequential, and Torch two-stream LoRA lines.",
     "Triton LoRA rows are intentionally excluded from this clean plot.",
     "The int4 two-stream Torch LoRA series uses Marlin SM reservation only inside the two-stream Marlin callable.",
 ]

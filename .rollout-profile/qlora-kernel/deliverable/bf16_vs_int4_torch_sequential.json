@@ -1,7 +1,7 @@
 {
   "metadata": {
     "fake": false,
-    "created_unix": 1780814965.2197778,
+    "created_unix": 1780903466.5191329,
     "config": {
       "hidden_size": 4096,
       "output_size": 11008,
@@ -132,10 +132,11 @@
     ],
     "scheme_order": [
       "bf16",
-      "int4 + two-stream Torch LoRA"
+      "int4 + sequential Torch LoRA"
     ],
     "research_summary": [
-      "Presentation comparison: plain BF16 rollout versus int4 with BF16 Torch two-stream LoRA, tokens up to 512."
+      "Self-contained deliverable comparison: plain BF16 rollout versus int4 Marlin base plus sequential BF16 Torch matmul LoRA, tokens up to 512.",
+      "Each JSON corresponds to exactly one PNG with the same basename."
     ],
     "shards": [
       ".rollout-profile/qlora-kernel/shards/qwen2_5-14b_down.json",
@@ -148,9 +149,19 @@
       ".rollout-profile/qlora-kernel/shards/qwen2_5-32b_qkv.json"
     ],
     "source_data": [
-      ".rollout-profile/qlora-kernel/qlora_kernel_perf_clean.json",
-      ".rollout-profile/qlora-kernel/presentation/extended_512_1024_raw.json"
-    ]
+      "/data/huanchen/sglang/.rollout-profile/qlora-kernel/archive/raw-inputs/qlora_kernel_perf.json",
+      "/data/huanchen/sglang/.rollout-profile/qlora-kernel/archive/raw-inputs/qlora_kernel_perf_bf16_torch_twostream.json",
+      "/data/huanchen/sglang/.rollout-profile/qlora-kernel/archive/old-shards/shards/qwen2_5-14b_down_bf16_csgmv_seq.json",
+      "/data/huanchen/sglang/.rollout-profile/qlora-kernel/archive/old-shards/shards/qwen2_5-14b_gate_up_bf16_csgmv_seq.json",
+      "/data/huanchen/sglang/.rollout-profile/qlora-kernel/archive/old-shards/shards/qwen2_5-14b_o_bf16_csgmv_seq.json",
+      "/data/huanchen/sglang/.rollout-profile/qlora-kernel/archive/old-shards/shards/qwen2_5-14b_qkv_bf16_csgmv_seq.json",
+      "/data/huanchen/sglang/.rollout-profile/qlora-kernel/archive/old-shards/shards/qwen2_5-32b_down_bf16_csgmv_seq.json",
+      "/data/huanchen/sglang/.rollout-profile/qlora-kernel/archive/old-shards/shards/qwen2_5-32b_gate_up_bf16_csgmv_seq.json",
+      "/data/huanchen/sglang/.rollout-profile/qlora-kernel/archive/old-shards/shards/qwen2_5-32b_o_bf16_csgmv_seq.json",
+      "/data/huanchen/sglang/.rollout-profile/qlora-kernel/archive/old-shards/shards/qwen2_5-32b_qkv_bf16_csgmv_seq.json",
+      "/data/huanchen/sglang/.rollout-profile/qlora-kernel/archive/old-shards/shards/smoke_bf16_csgmv_seq.json"
+    ],
+    "deliverable_name": "bf16_vs_int4_torch_sequential"
   },
   "measurements": [
     {
@@ -175,7 +186,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -184,13 +195,13 @@
       "in_features": 13824,
       "out_features": 5120,
       "token_rows": 1,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 53.247999399900436,
-      "median_us": 53.247999399900436,
-      "p20_us": 52.22399905323982,
-      "p80_us": 53.247999399900436,
-      "min_us": 52.22399905323982,
-      "max_us": 54.27199974656105,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 60.416001826524734,
+      "median_us": 60.416001826524734,
+      "p20_us": 60.416001826524734,
+      "p80_us": 60.6208011507988,
+      "min_us": 58.36800113320351,
+      "max_us": 61.43999844789505,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -199,7 +210,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -223,7 +234,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -232,13 +243,13 @@
       "in_features": 13824,
       "out_features": 5120,
       "token_rows": 4,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 53.247999399900436,
-      "median_us": 53.247999399900436,
-      "p20_us": 53.247999399900436,
-      "p80_us": 54.27199974656105,
-      "min_us": 52.22399905323982,
-      "max_us": 55.296000093221664,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 63.48799914121628,
+      "median_us": 63.48799914121628,
+      "p20_us": 63.48799914121628,
+      "p80_us": 64.51199948787689,
+      "min_us": 63.48799914121628,
+      "max_us": 66.56000018119812,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -247,7 +258,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -271,7 +282,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -280,13 +291,13 @@
       "in_features": 13824,
       "out_features": 5120,
       "token_rows": 8,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 54.27199974656105,
-      "median_us": 54.27199974656105,
-      "p20_us": 54.27199974656105,
-      "p80_us": 55.296000093221664,
-      "min_us": 53.247999399900436,
-      "max_us": 56.32000043988228,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 65.5359998345375,
+      "median_us": 65.5359998345375,
+      "p20_us": 64.51199948787689,
+      "p80_us": 65.5359998345375,
+      "min_us": 64.51199948787689,
+      "max_us": 66.56000018119812,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -295,7 +306,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -319,7 +330,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -328,13 +339,13 @@
       "in_features": 13824,
       "out_features": 5120,
       "token_rows": 16,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 52.22399905323982,
-      "median_us": 52.22399905323982,
-      "p20_us": 51.19999870657921,
-      "p80_us": 52.428799122571945,
-      "min_us": 51.19999870657921,
-      "max_us": 53.247999399900436,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 60.416001826524734,
+      "median_us": 60.416001826524734,
+      "p20_us": 60.416001826524734,
+      "p80_us": 61.43999844789505,
+      "min_us": 59.39200147986412,
+      "max_us": 62.463998794555664,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -343,7 +354,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -367,7 +378,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -376,13 +387,13 @@
       "in_features": 13824,
       "out_features": 5120,
       "token_rows": 32,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 62.463998794555664,
-      "median_us": 62.463998794555664,
-      "p20_us": 61.43999844789505,
-      "p80_us": 62.463998794555664,
-      "min_us": 60.416001826524734,
-      "max_us": 63.48799914121628,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 71.68000191450119,
+      "median_us": 71.68000191450119,
+      "p20_us": 70.65600156784058,
+      "p80_us": 71.68000191450119,
+      "min_us": 69.63200122117996,
+      "max_us": 72.7040022611618,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -391,7 +402,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -415,7 +426,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -424,13 +435,13 @@
       "in_features": 13824,
       "out_features": 5120,
       "token_rows": 64,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 78.84799689054489,
-      "median_us": 78.84799689054489,
-      "p20_us": 77.82399654388428,
-      "p80_us": 79.8719972372055,
-      "min_us": 76.80000364780426,
-      "max_us": 80.89599758386612,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 87.0399996638298,
+      "median_us": 87.0399996638298,
+      "p20_us": 86.01599931716919,
+      "p80_us": 87.0399996638298,
+      "min_us": 86.01599931716919,
+      "max_us": 88.06400001049042,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -439,7 +450,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -463,7 +474,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -472,13 +483,13 @@
       "in_features": 13824,
       "out_features": 5120,
       "token_rows": 128,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 117.76000261306763,
-      "median_us": 117.76000261306763,
-      "p20_us": 116.73600226640701,
-      "p80_us": 117.76000261306763,
-      "min_us": 116.73600226640701,
-      "max_us": 118.78400295972824,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 120.83200365304947,
+      "median_us": 120.83200365304947,
+      "p20_us": 120.83200365304947,
+      "p80_us": 121.85599654912949,
+      "min_us": 120.83200365304947,
+      "max_us": 121.85599654912949,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -487,7 +498,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -511,7 +522,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -520,13 +531,13 @@
       "in_features": 13824,
       "out_features": 5120,
       "token_rows": 256,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 205.82400262355804,
-      "median_us": 205.82400262355804,
-      "p20_us": 205.82400262355804,
-      "p80_us": 206.84799551963806,
-      "min_us": 205.82400262355804,
-      "max_us": 206.84799551963806,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 207.87200331687927,
+      "median_us": 207.87200331687927,
+      "p20_us": 206.84799551963806,
+      "p80_us": 207.87200331687927,
+      "min_us": 206.84799551963806,
+      "max_us": 208.8959962129593,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -535,7 +546,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -559,7 +570,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -568,13 +579,13 @@
       "in_features": 13824,
       "out_features": 5120,
       "token_rows": 512,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 390.1439905166626,
-      "median_us": 390.1439905166626,
-      "p20_us": 390.1439905166626,
-      "p80_us": 391.1679983139038,
-      "min_us": 389.1200125217438,
-      "max_us": 392.192006111145,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 404.4800102710724,
+      "median_us": 404.4800102710724,
+      "p20_us": 404.4800102710724,
+      "p80_us": 405.5039882659912,
+      "min_us": 403.4560024738312,
+      "max_us": 406.5279960632324,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -583,7 +594,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -607,7 +618,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -616,13 +627,13 @@
       "in_features": 5120,
       "out_features": 27648,
       "token_rows": 1,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 82.94399827718735,
-      "median_us": 82.94399827718735,
-      "p20_us": 81.91999793052673,
-      "p80_us": 82.94399827718735,
-      "min_us": 80.89599758386612,
-      "max_us": 84.99199897050858,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 90.11200070381165,
+      "median_us": 90.11200070381165,
+      "p20_us": 89.08800035715103,
+      "p80_us": 91.13600105047226,
+      "min_us": 89.08800035715103,
+      "max_us": 93.18400174379349,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -631,7 +642,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -655,7 +666,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -664,13 +675,13 @@
       "in_features": 5120,
       "out_features": 27648,
       "token_rows": 4,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 92.16000139713287,
-      "median_us": 92.16000139713287,
-      "p20_us": 91.95520132780075,
-      "p80_us": 93.18400174379349,
-      "min_us": 91.13600105047226,
-      "max_us": 94.2080020904541,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 103.42399775981903,
+      "median_us": 103.42399775981903,
+      "p20_us": 103.42399775981903,
+      "p80_us": 104.44799810647964,
+      "min_us": 102.39999741315842,
+      "max_us": 105.47199845314026,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -679,7 +690,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -703,7 +714,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -712,13 +723,13 @@
       "in_features": 5120,
       "out_features": 27648,
       "token_rows": 8,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 93.18400174379349,
-      "median_us": 93.18400174379349,
-      "p20_us": 92.97920167446136,
-      "p80_us": 94.2080020904541,
-      "min_us": 91.13600105047226,
-      "max_us": 94.2080020904541,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 105.47199845314026,
+      "median_us": 105.47199845314026,
+      "p20_us": 104.44799810647964,
+      "p80_us": 105.67679852247238,
+      "min_us": 104.44799810647964,
+      "max_us": 106.49599879980087,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -727,7 +738,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -751,7 +762,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -760,13 +771,13 @@
       "in_features": 5120,
       "out_features": 27648,
       "token_rows": 16,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 93.18400174379349,
-      "median_us": 93.18400174379349,
-      "p20_us": 93.18400174379349,
-      "p80_us": 94.2080020904541,
-      "min_us": 92.16000139713287,
-      "max_us": 94.2080020904541,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 102.39999741315842,
+      "median_us": 102.39999741315842,
+      "p20_us": 101.3759970664978,
+      "p80_us": 102.39999741315842,
+      "min_us": 100.35199671983719,
+      "max_us": 103.42399775981903,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -775,7 +786,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -799,7 +810,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -808,13 +819,13 @@
       "in_features": 5120,
       "out_features": 27648,
       "token_rows": 32,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 101.3759970664978,
-      "median_us": 101.3759970664978,
-      "p20_us": 101.17119699716568,
-      "p80_us": 102.39999741315842,
-      "min_us": 100.35199671983719,
-      "max_us": 102.39999741315842,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 109.56799983978271,
+      "median_us": 109.56799983978271,
+      "p20_us": 109.56799983978271,
+      "p80_us": 110.59200018644333,
+      "min_us": 108.5439994931221,
+      "max_us": 110.59200018644333,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -823,7 +834,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -847,7 +858,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -856,13 +867,13 @@
       "in_features": 5120,
       "out_features": 27648,
       "token_rows": 64,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 140.28799533843994,
-      "median_us": 140.28799533843994,
-      "p20_us": 139.26400244235992,
-      "p80_us": 141.31200313568115,
-      "min_us": 139.26400244235992,
-      "max_us": 142.33599603176117,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 144.3839967250824,
+      "median_us": 144.3839967250824,
+      "p20_us": 143.36000382900238,
+      "p80_us": 144.3839967250824,
+      "min_us": 142.33599603176117,
+      "max_us": 145.4080045223236,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -871,7 +882,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -895,7 +906,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -904,13 +915,13 @@
       "in_features": 5120,
       "out_features": 27648,
       "token_rows": 128,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 222.20799326896667,
-      "median_us": 222.20799326896667,
-      "p20_us": 222.20799326896667,
-      "p80_us": 223.23200106620789,
-      "min_us": 221.18400037288666,
-      "max_us": 225.2800017595291,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 258.04799795150757,
+      "median_us": 258.04799795150757,
+      "p20_us": 258.04799795150757,
+      "p80_us": 258.04799795150757,
+      "min_us": 257.02399015426636,
+      "max_us": 259.0720057487488,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -919,7 +930,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -943,7 +954,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -952,13 +963,13 @@
       "in_features": 5120,
       "out_features": 27648,
       "token_rows": 256,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 414.71999883651733,
-      "median_us": 414.71999883651733,
-      "p20_us": 413.6959910392761,
-      "p80_us": 414.71999883651733,
-      "min_us": 413.6959910392761,
-      "max_us": 415.74400663375854,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 422.91200160980225,
+      "median_us": 422.91200160980225,
+      "p20_us": 422.91200160980225,
+      "p80_us": 423.93600940704346,
+      "min_us": 421.88799381256104,
+      "max_us": 424.9599874019623,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -967,7 +978,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -991,7 +1002,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1000,13 +1011,13 @@
       "in_features": 5120,
       "out_features": 27648,
       "token_rows": 512,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 850.9439826011658,
-      "median_us": 850.9439826011658,
-      "p20_us": 845.6192016601562,
-      "p80_us": 851.967990398407,
-      "min_us": 843.7759876251221,
-      "max_us": 852.9919981956482,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 1029.1199684143066,
+      "median_us": 1029.1199684143066,
+      "p20_us": 1028.9151668548584,
+      "p80_us": 1030.1439762115479,
+      "min_us": 1028.0959606170654,
+      "max_us": 1031.167984008789,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -1015,7 +1026,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -1039,7 +1050,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1048,13 +1059,13 @@
       "in_features": 5120,
       "out_features": 5120,
       "token_rows": 1,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 32.76799991726875,
-      "median_us": 32.76799991726875,
-      "p20_us": 31.74399957060814,
-      "p80_us": 32.76799991726875,
-      "min_us": 31.74399957060814,
-      "max_us": 33.79200026392937,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 38.91199827194214,
+      "median_us": 38.91199827194214,
+      "p20_us": 38.707198947668076,
+      "p80_us": 38.91199827194214,
+      "min_us": 37.88800165057182,
+      "max_us": 39.93599861860275,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -1063,7 +1074,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -1087,7 +1098,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1096,13 +1107,13 @@
       "in_features": 5120,
       "out_features": 5120,
       "token_rows": 4,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 34.304000437259674,
-      "median_us": 34.304000437259674,
-      "p20_us": 33.79200026392937,
-      "p80_us": 34.81600061058998,
-      "min_us": 32.76799991726875,
-      "max_us": 34.81600061058998,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 41.98399931192398,
+      "median_us": 41.98399931192398,
+      "p20_us": 40.95999896526337,
+      "p80_us": 41.98399931192398,
+      "min_us": 40.95999896526337,
+      "max_us": 44.03200000524521,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -1111,7 +1122,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -1135,7 +1146,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1144,13 +1155,13 @@
       "in_features": 5120,
       "out_features": 5120,
       "token_rows": 8,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 35.840000957250595,
-      "median_us": 35.840000957250595,
-      "p20_us": 34.81600061058998,
-      "p80_us": 35.840000957250595,
-      "min_us": 34.81600061058998,
-      "max_us": 36.86400130391121,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 41.98399931192398,
+      "median_us": 41.98399931192398,
+      "p20_us": 41.98399931192398,
+      "p80_us": 43.007999658584595,
+      "min_us": 40.95999896526337,
+      "max_us": 44.03200000524521,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -1159,7 +1170,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -1183,7 +1194,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1192,13 +1203,13 @@
       "in_features": 5120,
       "out_features": 5120,
       "token_rows": 16,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 36.86400130391121,
-      "median_us": 36.86400130391121,
-      "p20_us": 36.86400130391121,
-      "p80_us": 37.88800165057182,
-      "min_us": 34.81600061058998,
-      "max_us": 37.88800165057182,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 45.05600035190582,
+      "median_us": 45.05600035190582,
+      "p20_us": 44.03200000524521,
+      "p80_us": 45.05600035190582,
+      "min_us": 44.03200000524521,
+      "max_us": 46.08000069856644,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -1207,7 +1218,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -1231,7 +1242,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1240,13 +1251,13 @@
       "in_features": 5120,
       "out_features": 5120,
       "token_rows": 32,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 44.03200000524521,
-      "median_us": 44.03200000524521,
-      "p20_us": 44.03200000524521,
-      "p80_us": 44.03200000524521,
-      "min_us": 43.007999658584595,
-      "max_us": 45.05600035190582,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 54.27199974656105,
+      "median_us": 54.27199974656105,
+      "p20_us": 53.247999399900436,
+      "p80_us": 54.27199974656105,
+      "min_us": 53.247999399900436,
+      "max_us": 55.296000093221664,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -1255,7 +1266,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -1279,7 +1290,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1288,13 +1299,13 @@
       "in_features": 5120,
       "out_features": 5120,
       "token_rows": 64,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 59.39200147986412,
-      "median_us": 59.39200147986412,
-      "p20_us": 59.39200147986412,
-      "p80_us": 59.39200147986412,
-      "min_us": 58.36800113320351,
-      "max_us": 60.416001826524734,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 67.58400052785873,
+      "median_us": 67.58400052785873,
+      "p20_us": 67.58400052785873,
+      "p80_us": 68.60800087451935,
+      "min_us": 67.58400052785873,
+      "max_us": 68.60800087451935,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -1303,7 +1314,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -1327,7 +1338,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1336,13 +1347,13 @@
       "in_features": 5120,
       "out_features": 5120,
       "token_rows": 128,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 76.80000364780426,
-      "median_us": 76.80000364780426,
-      "p20_us": 76.80000364780426,
-      "p80_us": 77.82399654388428,
-      "min_us": 75.77600330114365,
-      "max_us": 77.82399654388428,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 82.94399827718735,
+      "median_us": 82.94399827718735,
+      "p20_us": 82.94399827718735,
+      "p80_us": 82.94399827718735,
+      "min_us": 81.91999793052673,
+      "max_us": 83.96799862384796,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -1351,7 +1362,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -1375,7 +1386,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1384,13 +1395,13 @@
       "in_features": 5120,
       "out_features": 5120,
       "token_rows": 256,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 120.83200365304947,
-      "median_us": 120.83200365304947,
-      "p20_us": 120.83200365304947,
-      "p80_us": 121.85599654912949,
-      "min_us": 119.80800330638885,
-      "max_us": 121.85599654912949,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 123.90399724245071,
+      "median_us": 123.90399724245071,
+      "p20_us": 122.8799968957901,
+      "p80_us": 123.90399724245071,
+      "min_us": 122.8799968957901,
+      "max_us": 124.92799758911133,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -1399,7 +1410,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -1423,7 +1434,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1432,13 +1443,13 @@
       "in_features": 5120,
       "out_features": 5120,
       "token_rows": 512,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 169.98399794101715,
-      "median_us": 169.98399794101715,
-      "p20_us": 169.98399794101715,
-      "p80_us": 171.00800573825836,
-      "min_us": 168.96000504493713,
-      "max_us": 172.03199863433838,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 208.38399976491928,
+      "median_us": 208.38399976491928,
+      "p20_us": 207.87200331687927,
+      "p80_us": 208.8959962129593,
+      "min_us": 206.84799551963806,
+      "max_us": 208.8959962129593,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -1447,7 +1458,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -1471,7 +1482,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1480,13 +1491,13 @@
       "in_features": 5120,
       "out_features": 7168,
       "token_rows": 1,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 46.08000069856644,
-      "median_us": 46.08000069856644,
-      "p20_us": 46.08000069856644,
-      "p80_us": 47.10400104522705,
-      "min_us": 46.08000069856644,
-      "max_us": 47.10400104522705,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 53.247999399900436,
+      "median_us": 53.247999399900436,
+      "p20_us": 53.247999399900436,
+      "p80_us": 54.27199974656105,
+      "min_us": 53.247999399900436,
+      "max_us": 55.296000093221664,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -1495,7 +1506,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -1519,7 +1530,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1528,13 +1539,13 @@
       "in_features": 5120,
       "out_features": 7168,
       "token_rows": 4,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 45.56800052523613,
-      "median_us": 45.56800052523613,
-      "p20_us": 45.05600035190582,
-      "p80_us": 46.08000069856644,
-      "min_us": 44.03200000524521,
-      "max_us": 47.10400104522705,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 56.32000043988228,
+      "median_us": 56.32000043988228,
+      "p20_us": 56.32000043988228,
+      "p80_us": 57.34400078654289,
+      "min_us": 55.296000093221664,
+      "max_us": 57.34400078654289,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -1543,7 +1554,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -1567,7 +1578,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1576,13 +1587,13 @@
       "in_features": 5120,
       "out_features": 7168,
       "token_rows": 8,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 47.10400104522705,
-      "median_us": 47.10400104522705,
-      "p20_us": 47.10400104522705,
-      "p80_us": 47.10400104522705,
-      "min_us": 46.08000069856644,
-      "max_us": 48.128001391887665,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 57.34400078654289,
+      "median_us": 57.34400078654289,
+      "p20_us": 56.32000043988228,
+      "p80_us": 57.34400078654289,
+      "min_us": 56.32000043988228,
+      "max_us": 58.36800113320351,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -1591,7 +1602,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -1615,7 +1626,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1624,13 +1635,13 @@
       "in_features": 5120,
       "out_features": 7168,
       "token_rows": 16,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 46.08000069856644,
-      "median_us": 46.08000069856644,
-      "p20_us": 45.05600035190582,
-      "p80_us": 46.08000069856644,
-      "min_us": 45.05600035190582,
-      "max_us": 47.10400104522705,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 55.296000093221664,
+      "median_us": 55.296000093221664,
+      "p20_us": 54.27199974656105,
+      "p80_us": 55.296000093221664,
+      "min_us": 54.27199974656105,
+      "max_us": 56.32000043988228,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -1639,7 +1650,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -1663,7 +1674,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1672,13 +1683,13 @@
       "in_features": 5120,
       "out_features": 7168,
       "token_rows": 32,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 51.19999870657921,
-      "median_us": 51.19999870657921,
-      "p20_us": 50.995198637247086,
-      "p80_us": 51.19999870657921,
-      "min_us": 48.128001391887665,
-      "max_us": 52.22399905323982,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 63.48799914121628,
+      "median_us": 63.48799914121628,
+      "p20_us": 63.48799914121628,
+      "p80_us": 64.51199948787689,
+      "min_us": 62.463998794555664,
+      "max_us": 66.56000018119812,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -1687,7 +1698,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -1711,7 +1722,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1720,13 +1731,13 @@
       "in_features": 5120,
       "out_features": 7168,
       "token_rows": 64,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 59.39200147986412,
-      "median_us": 59.39200147986412,
-      "p20_us": 58.36800113320351,
-      "p80_us": 59.39200147986412,
-      "min_us": 58.36800113320351,
-      "max_us": 60.416001826524734,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 75.77600330114365,
+      "median_us": 75.77600330114365,
+      "p20_us": 75.57120323181152,
+      "p80_us": 75.77600330114365,
+      "min_us": 74.75200295448303,
+      "max_us": 76.80000364780426,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -1735,7 +1746,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -1759,7 +1770,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1768,13 +1779,13 @@
       "in_features": 5120,
       "out_features": 7168,
       "token_rows": 128,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 89.08800035715103,
-      "median_us": 89.08800035715103,
-      "p20_us": 89.08800035715103,
-      "p80_us": 89.08800035715103,
-      "min_us": 88.06400001049042,
-      "max_us": 95.23200243711472,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 98.30400347709656,
+      "median_us": 98.30400347709656,
+      "p20_us": 98.30400347709656,
+      "p80_us": 99.32799637317657,
+      "min_us": 98.30400347709656,
+      "max_us": 99.32799637317657,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -1783,7 +1794,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -1807,7 +1818,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1816,13 +1827,13 @@
       "in_features": 5120,
       "out_features": 7168,
       "token_rows": 256,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 145.4080045223236,
-      "median_us": 145.4080045223236,
-      "p20_us": 145.4080045223236,
-      "p80_us": 145.6128031015396,
-      "min_us": 144.3839967250824,
-      "max_us": 146.43199741840363,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 153.60000729560852,
+      "median_us": 153.60000729560852,
+      "p20_us": 152.5759994983673,
+      "p80_us": 153.60000729560852,
+      "min_us": 152.5759994983673,
+      "max_us": 154.62400019168854,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -1831,7 +1842,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-14b",
@@ -1855,7 +1866,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1864,13 +1875,13 @@
       "in_features": 5120,
       "out_features": 7168,
       "token_rows": 512,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 287.7439856529236,
-      "median_us": 287.7439856529236,
-      "p20_us": 287.7439856529236,
-      "p80_us": 288.7679934501648,
-      "min_us": 286.72000765800476,
-      "max_us": 289.792001247406,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 306.17600679397583,
+      "median_us": 306.17600679397583,
+      "p20_us": 306.17600679397583,
+      "p80_us": 307.20001459121704,
+      "min_us": 305.1519989967346,
+      "max_us": 308.22399258613586,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -1879,7 +1890,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -1903,7 +1914,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -1912,13 +1923,13 @@
       "in_features": 27648,
       "out_features": 5120,
       "token_rows": 1,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 77.82399654388428,
-      "median_us": 77.82399654388428,
-      "p20_us": 77.82399654388428,
-      "p80_us": 78.84799689054489,
-      "min_us": 76.80000364780426,
-      "max_us": 80.89599758386612,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 86.01599931716919,
+      "median_us": 86.01599931716919,
+      "p20_us": 84.99199897050858,
+      "p80_us": 86.01599931716919,
+      "min_us": 84.99199897050858,
+      "max_us": 89.08800035715103,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -1927,7 +1938,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -1951,7 +1962,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -1960,13 +1971,13 @@
       "in_features": 27648,
       "out_features": 5120,
       "token_rows": 4,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 78.84799689054489,
-      "median_us": 78.84799689054489,
-      "p20_us": 77.82399654388428,
-      "p80_us": 78.84799689054489,
-      "min_us": 76.80000364780426,
-      "max_us": 80.89599758386612,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 90.11200070381165,
+      "median_us": 90.11200070381165,
+      "p20_us": 89.08800035715103,
+      "p80_us": 90.11200070381165,
+      "min_us": 88.06400001049042,
+      "max_us": 92.16000139713287,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -1975,7 +1986,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -1999,7 +2010,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2008,13 +2019,13 @@
       "in_features": 27648,
       "out_features": 5120,
       "token_rows": 8,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 78.84799689054489,
-      "median_us": 78.84799689054489,
-      "p20_us": 77.82399654388428,
-      "p80_us": 79.8719972372055,
-      "min_us": 77.82399654388428,
-      "max_us": 81.91999793052673,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 91.13600105047226,
+      "median_us": 91.13600105047226,
+      "p20_us": 90.11200070381165,
+      "p80_us": 91.13600105047226,
+      "min_us": 90.11200070381165,
+      "max_us": 94.2080020904541,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -2023,7 +2034,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -2047,7 +2058,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2056,13 +2067,13 @@
       "in_features": 27648,
       "out_features": 5120,
       "token_rows": 16,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 84.99199897050858,
-      "median_us": 84.99199897050858,
-      "p20_us": 83.96799862384796,
-      "p80_us": 84.99199897050858,
-      "min_us": 82.94399827718735,
-      "max_us": 86.01599931716919,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 96.25600278377533,
+      "median_us": 96.25600278377533,
+      "p20_us": 96.25600278377533,
+      "p80_us": 97.28000313043594,
+      "min_us": 95.23200243711472,
+      "max_us": 98.30400347709656,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -2071,7 +2082,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -2095,7 +2106,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2104,13 +2115,13 @@
       "in_features": 27648,
       "out_features": 5120,
       "token_rows": 32,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 101.3759970664978,
-      "median_us": 101.3759970664978,
-      "p20_us": 100.35199671983719,
-      "p80_us": 101.3759970664978,
-      "min_us": 100.35199671983719,
-      "max_us": 103.42399775981903,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 114.68800157308578,
+      "median_us": 114.68800157308578,
+      "p20_us": 113.66400122642517,
+      "p80_us": 115.7120019197464,
+      "min_us": 112.64000087976456,
+      "max_us": 116.73600226640701,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -2119,7 +2130,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -2143,7 +2154,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2152,13 +2163,13 @@
       "in_features": 27648,
       "out_features": 5120,
       "token_rows": 64,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 124.41599741578102,
-      "median_us": 124.41599741578102,
-      "p20_us": 123.90399724245071,
-      "p80_us": 124.92799758911133,
-      "min_us": 122.8799968957901,
-      "max_us": 124.92799758911133,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 148.47999811172485,
+      "median_us": 148.47999811172485,
+      "p20_us": 148.27519953250885,
+      "p80_us": 149.50400590896606,
+      "min_us": 129.02399897575378,
+      "max_us": 150.52799880504608,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -2167,7 +2178,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -2191,7 +2202,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2200,13 +2211,13 @@
       "in_features": 27648,
       "out_features": 5120,
       "token_rows": 128,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 202.7519941329956,
-      "median_us": 202.7519941329956,
-      "p20_us": 202.7519941329956,
-      "p80_us": 203.77600193023682,
-      "min_us": 201.7280012369156,
-      "max_us": 204.79999482631683,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 205.82400262355804,
+      "median_us": 205.82400262355804,
+      "p20_us": 205.82400262355804,
+      "p80_us": 206.84799551963806,
+      "min_us": 204.79999482631683,
+      "max_us": 206.84799551963806,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -2215,7 +2226,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -2239,7 +2250,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2248,12 +2259,12 @@
       "in_features": 27648,
       "out_features": 5120,
       "token_rows": 256,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 375.8080005645752,
-      "median_us": 375.8080005645752,
-      "p20_us": 374.783992767334,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 376.8320083618164,
+      "median_us": 376.8320083618164,
+      "p20_us": 376.8320083618164,
       "p80_us": 376.8320083618164,
-      "min_us": 374.783992767334,
+      "min_us": 375.8080005645752,
       "max_us": 377.85598635673523,
       "warmup_iters": 10,
       "measure_iters": 30,
@@ -2263,7 +2274,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -2287,7 +2298,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2296,13 +2307,13 @@
       "in_features": 27648,
       "out_features": 5120,
       "token_rows": 512,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 752.6400089263916,
-      "median_us": 752.6400089263916,
-      "p20_us": 746.4960217475891,
-      "p80_us": 752.6400089263916,
-      "min_us": 744.4480061531067,
-      "max_us": 753.6640167236328,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 721.9200134277344,
+      "median_us": 721.9200134277344,
+      "p20_us": 721.9200134277344,
+      "p80_us": 722.9440212249756,
+      "min_us": 721.9200134277344,
+      "max_us": 730.1120162010193,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -2311,7 +2322,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -2335,7 +2346,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2344,13 +2355,13 @@
       "in_features": 5120,
       "out_features": 55296,
       "token_rows": 1,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 118.78400295972824,
-      "median_us": 118.78400295972824,
-      "p20_us": 117.76000261306763,
-      "p80_us": 119.80800330638885,
-      "min_us": 117.76000261306763,
-      "max_us": 121.85599654912949,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 128.51200252771378,
+      "median_us": 128.51200252771378,
+      "p20_us": 126.97599828243256,
+      "p80_us": 130.048006772995,
+      "min_us": 125.95200538635254,
+      "max_us": 133.12000036239624,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -2359,7 +2370,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -2383,7 +2394,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2392,13 +2403,13 @@
       "in_features": 5120,
       "out_features": 55296,
       "token_rows": 4,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 129.02399897575378,
-      "median_us": 129.02399897575378,
-      "p20_us": 128.00000607967377,
-      "p80_us": 130.048006772995,
-      "min_us": 126.97599828243256,
-      "max_us": 132.09599256515503,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 139.77599889039993,
+      "median_us": 139.77599889039993,
+      "p20_us": 139.26400244235992,
+      "p80_us": 142.33599603176117,
+      "min_us": 138.2399946451187,
+      "max_us": 145.4080045223236,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -2407,7 +2418,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -2431,7 +2442,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2440,13 +2451,13 @@
       "in_features": 5120,
       "out_features": 55296,
       "token_rows": 8,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 125.95200538635254,
-      "median_us": 125.95200538635254,
-      "p20_us": 124.92799758911133,
-      "p80_us": 126.97599828243256,
-      "min_us": 123.90399724245071,
-      "max_us": 129.02399897575378,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 135.67999750375748,
+      "median_us": 135.67999750375748,
+      "p20_us": 133.12000036239624,
+      "p80_us": 136.39679551124573,
+      "min_us": 132.09599256515503,
+      "max_us": 139.26400244235992,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -2455,7 +2466,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -2479,7 +2490,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2488,13 +2499,13 @@
       "in_features": 5120,
       "out_features": 55296,
       "token_rows": 16,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 134.14399325847626,
-      "median_us": 134.14399325847626,
-      "p20_us": 134.14399325847626,
-      "p80_us": 135.16800105571747,
-      "min_us": 133.12000036239624,
-      "max_us": 153.60000729560852,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 144.3839967250824,
+      "median_us": 144.3839967250824,
+      "p20_us": 143.36000382900238,
+      "p80_us": 145.4080045223236,
+      "min_us": 143.36000382900238,
+      "max_us": 148.47999811172485,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -2503,7 +2514,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -2527,7 +2538,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2536,13 +2547,13 @@
       "in_features": 5120,
       "out_features": 55296,
       "token_rows": 32,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 149.50400590896606,
-      "median_us": 149.50400590896606,
-      "p20_us": 149.50400590896606,
-      "p80_us": 150.52799880504608,
-      "min_us": 148.47999811172485,
-      "max_us": 150.52799880504608,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 156.67200088500977,
+      "median_us": 156.67200088500977,
+      "p20_us": 156.67200088500977,
+      "p80_us": 156.87679946422577,
+      "min_us": 155.64799308776855,
+      "max_us": 157.69599378108978,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -2551,7 +2562,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -2575,7 +2586,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2584,13 +2595,13 @@
       "in_features": 5120,
       "out_features": 55296,
       "token_rows": 64,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 222.20799326896667,
-      "median_us": 222.20799326896667,
-      "p20_us": 222.20799326896667,
-      "p80_us": 222.41279482841492,
-      "min_us": 221.18400037288666,
-      "max_us": 223.23200106620789,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 227.32800245285034,
+      "median_us": 227.32800245285034,
+      "p20_us": 227.32800245285034,
+      "p80_us": 228.35199534893036,
+      "min_us": 227.32800245285034,
+      "max_us": 228.35199534893036,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -2599,7 +2610,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -2623,7 +2634,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2632,13 +2643,13 @@
       "in_features": 5120,
       "out_features": 55296,
       "token_rows": 128,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 420.3519970178604,
-      "median_us": 420.3519970178604,
-      "p20_us": 419.840008020401,
-      "p80_us": 420.8639860153198,
-      "min_us": 418.8160002231598,
-      "max_us": 421.88799381256104,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 425.9839951992035,
+      "median_us": 425.9839951992035,
+      "p20_us": 424.9599874019623,
+      "p80_us": 425.9839951992035,
+      "min_us": 423.93600940704346,
+      "max_us": 427.0080029964447,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -2647,7 +2658,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -2671,7 +2682,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2680,13 +2691,13 @@
       "in_features": 5120,
       "out_features": 55296,
       "token_rows": 256,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 822.272002696991,
-      "median_us": 822.272002696991,
-      "p20_us": 821.2479948997498,
-      "p80_us": 830.4640054702759,
-      "min_us": 820.2239871025085,
-      "max_us": 839.680016040802,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 858.1119775772095,
+      "median_us": 858.1119775772095,
+      "p20_us": 857.088029384613,
+      "p80_us": 858.1119775772095,
+      "min_us": 857.088029384613,
+      "max_us": 860.1599931716919,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -2695,7 +2706,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -2719,7 +2730,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2728,13 +2739,13 @@
       "in_features": 5120,
       "out_features": 55296,
       "token_rows": 512,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 1667.5840020179749,
-      "median_us": 1667.5840020179749,
-      "p20_us": 1667.072057723999,
-      "p80_us": 1717.2479629516602,
-      "min_us": 1666.0480499267578,
-      "max_us": 1735.6799840927124,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 2027.519941329956,
+      "median_us": 2027.519941329956,
+      "p20_us": 2026.4959335327148,
+      "p80_us": 2028.5439491271973,
+      "min_us": 2025.4719257354736,
+      "max_us": 2036.736011505127,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -2743,7 +2754,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -2767,7 +2778,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2776,13 +2787,13 @@
       "in_features": 5120,
       "out_features": 5120,
       "token_rows": 1,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 32.76799991726875,
-      "median_us": 32.76799991726875,
-      "p20_us": 31.74399957060814,
-      "p80_us": 32.76799991726875,
-      "min_us": 31.74399957060814,
-      "max_us": 33.79200026392937,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 39.93599861860275,
+      "median_us": 39.93599861860275,
+      "p20_us": 38.91199827194214,
+      "p80_us": 39.93599861860275,
+      "min_us": 38.91199827194214,
+      "max_us": 40.95999896526337,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -2791,7 +2802,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -2815,7 +2826,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2824,13 +2835,13 @@
       "in_features": 5120,
       "out_features": 5120,
       "token_rows": 4,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 34.81600061058998,
-      "median_us": 34.81600061058998,
-      "p20_us": 33.79200026392937,
-      "p80_us": 34.81600061058998,
-      "min_us": 33.79200026392937,
-      "max_us": 35.840000957250595,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 43.007999658584595,
+      "median_us": 43.007999658584595,
+      "p20_us": 41.98399931192398,
+      "p80_us": 43.007999658584595,
+      "min_us": 41.98399931192398,
+      "max_us": 44.03200000524521,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -2839,7 +2850,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -2863,7 +2874,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2872,13 +2883,13 @@
       "in_features": 5120,
       "out_features": 5120,
       "token_rows": 8,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 35.840000957250595,
-      "median_us": 35.840000957250595,
-      "p20_us": 35.840000957250595,
-      "p80_us": 35.840000957250595,
-      "min_us": 34.81600061058998,
-      "max_us": 36.86400130391121,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 43.007999658584595,
+      "median_us": 43.007999658584595,
+      "p20_us": 43.007999658584595,
+      "p80_us": 43.007999658584595,
+      "min_us": 41.98399931192398,
+      "max_us": 45.05600035190582,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -2887,7 +2898,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -2911,7 +2922,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2920,13 +2931,13 @@
       "in_features": 5120,
       "out_features": 5120,
       "token_rows": 16,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 37.88800165057182,
-      "median_us": 37.88800165057182,
-      "p20_us": 36.86400130391121,
-      "p80_us": 37.88800165057182,
-      "min_us": 36.86400130391121,
-      "max_us": 37.88800165057182,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 46.08000069856644,
+      "median_us": 46.08000069856644,
+      "p20_us": 45.05600035190582,
+      "p80_us": 46.08000069856644,
+      "min_us": 45.05600035190582,
+      "max_us": 47.10400104522705,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -2935,7 +2946,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -2959,7 +2970,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2968,13 +2979,13 @@
       "in_features": 5120,
       "out_features": 5120,
       "token_rows": 32,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 38.91199827194214,
-      "median_us": 38.91199827194214,
-      "p20_us": 38.91199827194214,
-      "p80_us": 39.11679834127426,
-      "min_us": 37.88800165057182,
-      "max_us": 40.95999896526337,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 48.128001391887665,
+      "median_us": 48.128001391887665,
+      "p20_us": 47.10400104522705,
+      "p80_us": 48.128001391887665,
+      "min_us": 47.10400104522705,
+      "max_us": 49.15200173854828,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -2983,7 +2994,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -3007,7 +3018,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3016,13 +3027,13 @@
       "in_features": 5120,
       "out_features": 5120,
       "token_rows": 64,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 52.22399905323982,
-      "median_us": 52.22399905323982,
-      "p20_us": 52.0191989839077,
-      "p80_us": 52.22399905323982,
-      "min_us": 51.19999870657921,
-      "max_us": 53.247999399900436,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 59.90400165319443,
+      "median_us": 59.90400165319443,
+      "p20_us": 59.39200147986412,
+      "p80_us": 60.416001826524734,
+      "min_us": 59.39200147986412,
+      "max_us": 60.416001826524734,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -3031,7 +3042,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -3055,7 +3066,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3064,13 +3075,13 @@
       "in_features": 5120,
       "out_features": 5120,
       "token_rows": 128,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 63.48799914121628,
-      "median_us": 63.48799914121628,
-      "p20_us": 62.463998794555664,
-      "p80_us": 63.48799914121628,
-      "min_us": 62.463998794555664,
-      "max_us": 64.51199948787689,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 68.60800087451935,
+      "median_us": 68.60800087451935,
+      "p20_us": 68.40320080518723,
+      "p80_us": 68.60800087451935,
+      "min_us": 67.58400052785873,
+      "max_us": 69.63200122117996,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -3079,7 +3090,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -3103,7 +3114,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3112,13 +3123,13 @@
       "in_features": 5120,
       "out_features": 5120,
       "token_rows": 256,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 99.83999654650688,
-      "median_us": 99.83999654650688,
-      "p20_us": 99.32799637317657,
-      "p80_us": 100.35199671983719,
-      "min_us": 99.32799637317657,
-      "max_us": 101.3759970664978,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 101.3759970664978,
+      "median_us": 101.3759970664978,
+      "p20_us": 101.3759970664978,
+      "p80_us": 101.58079713582993,
+      "min_us": 100.35199671983719,
+      "max_us": 102.39999741315842,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -3127,7 +3138,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -3151,7 +3162,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3160,13 +3171,13 @@
       "in_features": 5120,
       "out_features": 5120,
       "token_rows": 512,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 176.12800002098083,
-      "median_us": 176.12800002098083,
-      "p20_us": 175.10400712490082,
-      "p80_us": 176.12800002098083,
-      "min_us": 175.10400712490082,
-      "max_us": 177.15199291706085,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 178.17600071430206,
+      "median_us": 178.17600071430206,
+      "p20_us": 178.17600071430206,
+      "p80_us": 179.19999361038208,
+      "min_us": 177.15199291706085,
+      "max_us": 179.19999361038208,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -3175,7 +3186,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -3199,7 +3210,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3208,13 +3219,13 @@
       "in_features": 5120,
       "out_features": 7168,
       "token_rows": 1,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 46.08000069856644,
-      "median_us": 46.08000069856644,
-      "p20_us": 46.08000069856644,
-      "p80_us": 47.10400104522705,
-      "min_us": 46.08000069856644,
-      "max_us": 48.128001391887665,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 53.247999399900436,
+      "median_us": 53.247999399900436,
+      "p20_us": 53.247999399900436,
+      "p80_us": 54.27199974656105,
+      "min_us": 53.247999399900436,
+      "max_us": 55.296000093221664,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -3223,7 +3234,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -3247,7 +3258,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3256,13 +3267,13 @@
       "in_features": 5120,
       "out_features": 7168,
       "token_rows": 4,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 46.08000069856644,
-      "median_us": 46.08000069856644,
-      "p20_us": 45.05600035190582,
-      "p80_us": 47.10400104522705,
-      "min_us": 45.05600035190582,
-      "max_us": 47.10400104522705,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 56.32000043988228,
+      "median_us": 56.32000043988228,
+      "p20_us": 56.32000043988228,
+      "p80_us": 57.34400078654289,
+      "min_us": 56.32000043988228,
+      "max_us": 57.34400078654289,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -3271,7 +3282,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -3295,7 +3306,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3304,13 +3315,13 @@
       "in_features": 5120,
       "out_features": 7168,
       "token_rows": 8,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 48.128001391887665,
-      "median_us": 48.128001391887665,
-      "p20_us": 47.10400104522705,
-      "p80_us": 48.128001391887665,
-      "min_us": 46.08000069856644,
-      "max_us": 50.175998359918594,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 57.34400078654289,
+      "median_us": 57.34400078654289,
+      "p20_us": 57.34400078654289,
+      "p80_us": 57.34400078654289,
+      "min_us": 56.32000043988228,
+      "max_us": 58.36800113320351,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -3319,7 +3330,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -3343,7 +3354,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3352,13 +3363,13 @@
       "in_features": 5120,
       "out_features": 7168,
       "token_rows": 16,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 44.03200000524521,
-      "median_us": 44.03200000524521,
-      "p20_us": 44.03200000524521,
-      "p80_us": 45.05600035190582,
-      "min_us": 43.007999658584595,
-      "max_us": 54.27199974656105,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 54.27199974656105,
+      "median_us": 54.27199974656105,
+      "p20_us": 53.247999399900436,
+      "p80_us": 54.27199974656105,
+      "min_us": 53.247999399900436,
+      "max_us": 55.296000093221664,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -3367,7 +3378,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -3391,7 +3402,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3400,13 +3411,13 @@
       "in_features": 5120,
       "out_features": 7168,
       "token_rows": 32,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 50.175998359918594,
-      "median_us": 50.175998359918594,
-      "p20_us": 50.175998359918594,
-      "p80_us": 50.175998359918594,
-      "min_us": 46.08000069856644,
-      "max_us": 51.19999870657921,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 62.463998794555664,
+      "median_us": 62.463998794555664,
+      "p20_us": 62.463998794555664,
+      "p80_us": 63.48799914121628,
+      "min_us": 61.43999844789505,
+      "max_us": 65.5359998345375,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -3415,7 +3426,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -3439,7 +3450,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3448,13 +3459,13 @@
       "in_features": 5120,
       "out_features": 7168,
       "token_rows": 64,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 56.32000043988228,
-      "median_us": 56.32000043988228,
-      "p20_us": 56.32000043988228,
-      "p80_us": 57.34400078654289,
-      "min_us": 55.296000093221664,
-      "max_us": 57.34400078654289,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 71.68000191450119,
+      "median_us": 71.68000191450119,
+      "p20_us": 70.65600156784058,
+      "p80_us": 71.68000191450119,
+      "min_us": 70.65600156784058,
+      "max_us": 71.68000191450119,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -3463,7 +3474,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -3487,7 +3498,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3496,13 +3507,13 @@
       "in_features": 5120,
       "out_features": 7168,
       "token_rows": 128,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 83.96799862384796,
-      "median_us": 83.96799862384796,
-      "p20_us": 82.94399827718735,
-      "p80_us": 83.96799862384796,
-      "min_us": 82.94399827718735,
-      "max_us": 83.96799862384796,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 93.18400174379349,
+      "median_us": 93.18400174379349,
+      "p20_us": 92.16000139713287,
+      "p80_us": 93.18400174379349,
+      "min_us": 92.16000139713287,
+      "max_us": 94.2080020904541,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -3511,7 +3522,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -3535,7 +3546,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3544,13 +3555,13 @@
       "in_features": 5120,
       "out_features": 7168,
       "token_rows": 256,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 136.7039978504181,
-      "median_us": 136.7039978504181,
-      "p20_us": 136.19199395179749,
-      "p80_us": 137.2160017490387,
-      "min_us": 136.19199395179749,
-      "max_us": 138.2399946451187,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 144.3839967250824,
+      "median_us": 144.3839967250824,
+      "p20_us": 144.3839967250824,
+      "p80_us": 144.3839967250824,
+      "min_us": 143.36000382900238,
+      "max_us": 145.4080045223236,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -3559,7 +3570,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     },
     {
       "model": "qwen2.5-32b",
@@ -3583,7 +3594,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3592,13 +3603,13 @@
       "in_features": 5120,
       "out_features": 7168,
       "token_rows": 512,
-      "scheme": "int4 + two-stream Torch LoRA",
-      "latency_us": 241.66400730609894,
-      "median_us": 241.66400730609894,
-      "p20_us": 240.63999950885773,
-      "p80_us": 241.66400730609894,
-      "min_us": 239.6160066127777,
-      "max_us": 242.68800020217896,
+      "scheme": "int4 + sequential Torch LoRA",
+      "latency_us": 264.70398902893066,
+      "median_us": 264.70398902893066,
+      "p20_us": 264.19198513031006,
+      "p80_us": 265.21599292755127,
+      "min_us": 262.14399933815,
+      "max_us": 266.2400007247925,
       "warmup_iters": 10,
       "measure_iters": 30,
       "compiled": true,
@@ -3607,7 +3618,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of Torch QLoRA matmul two-stream"
+      "note": "Deliverable comparison alias of int4 + sequential Torch LoRA"
     }
   ]
 }

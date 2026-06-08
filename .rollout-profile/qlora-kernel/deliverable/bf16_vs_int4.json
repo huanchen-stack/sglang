@@ -1,7 +1,7 @@
 {
   "metadata": {
     "fake": false,
-    "created_unix": 1780815089.9159646,
+    "created_unix": 1780903466.5165906,
     "config": {
       "hidden_size": 4096,
       "output_size": 11008,
@@ -135,7 +135,8 @@
       "int4"
     ],
     "research_summary": [
-      "Presentation comparison: plain BF16 rollout versus int4 Marlin base-only, no LoRA patch, tokens up to 512."
+      "Self-contained deliverable comparison: plain BF16 rollout versus plain int4 Marlin base, tokens up to 512.",
+      "Each JSON corresponds to exactly one PNG with the same basename."
     ],
     "shards": [
       ".rollout-profile/qlora-kernel/shards/qwen2_5-14b_down.json",
@@ -148,9 +149,19 @@
       ".rollout-profile/qlora-kernel/shards/qwen2_5-32b_qkv.json"
     ],
     "source_data": [
-      ".rollout-profile/qlora-kernel/qlora_kernel_perf_clean.json",
-      ".rollout-profile/qlora-kernel/presentation/extended_512_1024_raw.json"
-    ]
+      "/data/huanchen/sglang/.rollout-profile/qlora-kernel/archive/raw-inputs/qlora_kernel_perf.json",
+      "/data/huanchen/sglang/.rollout-profile/qlora-kernel/archive/raw-inputs/qlora_kernel_perf_bf16_torch_twostream.json",
+      "/data/huanchen/sglang/.rollout-profile/qlora-kernel/archive/old-shards/shards/qwen2_5-14b_down_bf16_csgmv_seq.json",
+      "/data/huanchen/sglang/.rollout-profile/qlora-kernel/archive/old-shards/shards/qwen2_5-14b_gate_up_bf16_csgmv_seq.json",
+      "/data/huanchen/sglang/.rollout-profile/qlora-kernel/archive/old-shards/shards/qwen2_5-14b_o_bf16_csgmv_seq.json",
+      "/data/huanchen/sglang/.rollout-profile/qlora-kernel/archive/old-shards/shards/qwen2_5-14b_qkv_bf16_csgmv_seq.json",
+      "/data/huanchen/sglang/.rollout-profile/qlora-kernel/archive/old-shards/shards/qwen2_5-32b_down_bf16_csgmv_seq.json",
+      "/data/huanchen/sglang/.rollout-profile/qlora-kernel/archive/old-shards/shards/qwen2_5-32b_gate_up_bf16_csgmv_seq.json",
+      "/data/huanchen/sglang/.rollout-profile/qlora-kernel/archive/old-shards/shards/qwen2_5-32b_o_bf16_csgmv_seq.json",
+      "/data/huanchen/sglang/.rollout-profile/qlora-kernel/archive/old-shards/shards/qwen2_5-32b_qkv_bf16_csgmv_seq.json",
+      "/data/huanchen/sglang/.rollout-profile/qlora-kernel/archive/old-shards/shards/smoke_bf16_csgmv_seq.json"
+    ],
+    "deliverable_name": "bf16_vs_int4"
   },
   "measurements": [
     {
@@ -175,7 +186,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -199,7 +210,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -223,7 +234,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -247,7 +258,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -271,7 +282,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -295,7 +306,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -319,7 +330,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -343,7 +354,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -367,7 +378,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -391,7 +402,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -415,7 +426,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -439,7 +450,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -463,7 +474,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -487,7 +498,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -511,7 +522,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -535,7 +546,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -559,7 +570,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -583,7 +594,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4 Marlin base"
     },
     {
       "model": "qwen2.5-14b",
@@ -607,7 +618,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -631,7 +642,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -655,7 +666,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -679,7 +690,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -703,7 +714,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -727,7 +738,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -751,7 +762,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -775,7 +786,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -799,7 +810,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -823,7 +834,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -847,7 +858,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -871,7 +882,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -895,7 +906,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -919,7 +930,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -943,7 +954,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -967,7 +978,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -991,7 +1002,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1015,7 +1026,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4 Marlin base"
     },
     {
       "model": "qwen2.5-14b",
@@ -1039,7 +1050,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1063,7 +1074,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -1087,7 +1098,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1111,7 +1122,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -1135,7 +1146,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1159,7 +1170,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -1183,7 +1194,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1207,7 +1218,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -1231,7 +1242,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1255,7 +1266,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -1279,7 +1290,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1303,7 +1314,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -1327,7 +1338,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1351,7 +1362,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -1375,7 +1386,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1399,7 +1410,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -1423,7 +1434,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1447,7 +1458,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4 Marlin base"
     },
     {
       "model": "qwen2.5-14b",
@@ -1471,7 +1482,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1495,7 +1506,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -1519,7 +1530,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1543,7 +1554,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -1567,7 +1578,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1591,7 +1602,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -1615,7 +1626,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1639,7 +1650,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -1663,7 +1674,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1687,7 +1698,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -1711,7 +1722,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1735,7 +1746,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -1759,7 +1770,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1783,7 +1794,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -1807,7 +1818,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1831,7 +1842,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-14b",
@@ -1855,7 +1866,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-14b",
@@ -1879,7 +1890,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4 Marlin base"
     },
     {
       "model": "qwen2.5-32b",
@@ -1903,7 +1914,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -1927,7 +1938,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -1951,7 +1962,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -1975,7 +1986,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -1999,7 +2010,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2023,7 +2034,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -2047,7 +2058,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2071,7 +2082,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -2095,7 +2106,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2119,7 +2130,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -2143,7 +2154,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2167,7 +2178,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -2191,7 +2202,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2215,7 +2226,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -2239,7 +2250,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2263,7 +2274,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -2287,7 +2298,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2311,7 +2322,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4 Marlin base"
     },
     {
       "model": "qwen2.5-32b",
@@ -2335,7 +2346,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2359,7 +2370,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -2383,7 +2394,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2407,7 +2418,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -2431,7 +2442,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2455,7 +2466,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -2479,7 +2490,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2503,7 +2514,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -2527,7 +2538,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2551,7 +2562,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -2575,7 +2586,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2599,7 +2610,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -2623,7 +2634,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2647,7 +2658,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -2671,7 +2682,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2695,7 +2706,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -2719,7 +2730,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2743,7 +2754,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4 Marlin base"
     },
     {
       "model": "qwen2.5-32b",
@@ -2767,7 +2778,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2791,7 +2802,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -2815,7 +2826,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2839,7 +2850,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -2863,7 +2874,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2887,7 +2898,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -2911,7 +2922,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2935,7 +2946,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -2959,7 +2970,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -2983,7 +2994,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -3007,7 +3018,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3031,7 +3042,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -3055,7 +3066,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3079,7 +3090,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -3103,7 +3114,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3127,7 +3138,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -3151,7 +3162,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3175,7 +3186,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4 Marlin base"
     },
     {
       "model": "qwen2.5-32b",
@@ -3199,7 +3210,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3223,7 +3234,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -3247,7 +3258,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3271,7 +3282,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -3295,7 +3306,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3319,7 +3330,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -3343,7 +3354,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3367,7 +3378,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -3391,7 +3402,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3415,7 +3426,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -3439,7 +3450,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3463,7 +3474,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -3487,7 +3498,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3511,7 +3522,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -3535,7 +3546,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3559,7 +3570,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Clean comparison alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4"
     },
     {
       "model": "qwen2.5-32b",
@@ -3583,7 +3594,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of bf16 dense base"
+      "note": "Deliverable comparison alias of bf16"
     },
     {
       "model": "qwen2.5-32b",
@@ -3607,7 +3618,7 @@
       "activation_prewarm": true,
       "fake": false,
       "error": null,
-      "note": "Presentation alias of int4 Marlin base"
+      "note": "Deliverable comparison alias of int4 Marlin base"
     }
   ]
 }
