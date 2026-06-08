@@ -20,6 +20,7 @@ import datetime
 import gc
 import hashlib
 import inspect
+import json
 import logging
 import os
 import socket
@@ -170,6 +171,7 @@ from sglang.srt.model_loader.remote_instance_weight_loader_utils import (
 from sglang.srt.model_loader.utils import set_default_torch_dtype
 from sglang.srt.model_loader.weight_utils import default_weight_loader
 from sglang.srt.platforms import current_platform
+from sglang.srt.rollout_precision import load_rollout_precision_policy
 from sglang.srt.sampling.sampling_batch_info import SamplingBatchInfo
 from sglang.srt.server_args import (
     ServerArgs,
@@ -383,6 +385,9 @@ class ModelRunner(ModelRunnerKVCacheMixin):
         self.model_config = model_config
         self.dist_port = nccl_port
         self.server_args = server_args
+        self.rollout_precision_policy = load_rollout_precision_policy(
+            server_args.rollout_precision_policy
+        )
         self.is_draft_worker = is_draft_worker
         self.is_generation = model_config.is_generation
         self.device_timer = None
@@ -1221,6 +1226,63 @@ class ModelRunner(ModelRunnerKVCacheMixin):
                 ),
             )
 
+    def _build_rollout_precision_int4_model_config(self) -> ModelConfig:
+        return ModelConfig(
+            model_path=self.server_args.rollout_precision_int4_model_path,
+            trust_remote_code=self.server_args.trust_remote_code,
+            revision=self.server_args.revision,
+            context_length=self.model_config.context_len,
+            model_override_args=self.server_args.json_model_override_args,
+            is_embedding=self.server_args.is_embedding,
+            enable_multimodal=self.server_args.enable_multimodal,
+            dtype=self.server_args.dtype,
+            quantization=self.server_args.quantization,
+            override_config_file=self.server_args.decrypted_config_file,
+            is_draft_model=False,
+            model_impl=self.server_args.model_impl,
+            sampling_defaults=self.server_args.sampling_defaults,
+            quantize_and_serve=self.server_args.quantize_and_serve,
+            is_multi_layer_eagle=self.server_args.enable_multi_layer_eagle,
+            encoder_only=self.server_args.encoder_only,
+            language_only=self.server_args.language_only,
+            disable_hybrid_swa_memory=self.server_args.disable_hybrid_swa_memory,
+            model_config_parser=self.server_args.model_config_parser,
+        )
+
+    def _load_rollout_precision_int4_shadow_model(self, modelopt_config) -> nn.Module:
+        logger.info(
+            "Loading rollout precision INT4 shadow model from %s",
+            self.server_args.rollout_precision_int4_model_path,
+        )
+        shadow_model_config = self._build_rollout_precision_int4_model_config()
+        shadow_load_config = LoadConfig(
+            load_format=(
+                self.server_args.rollout_precision_int4_load_format
+                or self.server_args.load_format
+            ),
+            download_dir=self.server_args.download_dir,
+            model_loader_extra_config=self.server_args.model_loader_extra_config,
+            tp_rank=self.tp_rank,
+            modelexpress_url=self.server_args.modelexpress_url,
+            modelexpress_transport=self.server_args.modelexpress_transport,
+            modelopt_config=modelopt_config,
+            rl_quant_profile=self.server_args.rl_quant_profile,
+            draft_model_idx=self.draft_model_idx,
+        )
+        shadow_loader = get_model_loader(
+            load_config=shadow_load_config,
+            model_config=shadow_model_config,
+        )
+        shadow_model = shadow_loader.load_model(
+            model_config=shadow_model_config,
+            device_config=DeviceConfig(self.device, self.gpu_id),
+        )
+        shadow_model.eval()
+        for param in shadow_model.parameters():
+            param.requires_grad_(False)
+        logger.info("Loaded rollout precision INT4 shadow model.")
+        return shadow_model
+
     def load_model(self):
         tic_total = time.perf_counter()
         before_avail_memory = get_available_gpu_memory(self.device, self.gpu_id)
@@ -1317,6 +1379,11 @@ class ModelRunner(ModelRunnerKVCacheMixin):
                 self.remote_instance_transfer_engine_weight_info = (
                     self.loader.remote_instance_transfer_engine_weight_info
                 )
+            self.rollout_precision_int4_model = (
+                self._load_rollout_precision_int4_shadow_model(modelopt_config)
+                if self.server_args.rollout_precision_int4_model_path
+                else None
+            )
         # Cache needs to be cleared after loading model weights (in the self.loader.load_model function).
         # To avoid conflict with memory_saver_adapter.region, empty_cache operation is now moved here.
         if _is_npu:
@@ -1997,6 +2064,9 @@ class ModelRunner(ModelRunnerKVCacheMixin):
             max_lora_rank=self.server_args.max_lora_rank,
             target_modules=self.server_args.lora_target_modules,
             lora_paths=self.server_args.lora_paths,
+            rollout_precision_int4_model=getattr(
+                self, "rollout_precision_int4_model", None
+            ),
         )
 
     def _init_lora_cuda_graph_moe_buffers(self):

@@ -1,0 +1,66 @@
+{
+  "model": "Qwen2.5-14B-Instruct",
+  "dataset": "Eurus-2-RL",
+  "segments": [
+    {
+      "name": "BF16 merged",
+      "batch_start": 512,
+      "batch_end": 128,
+      "t_start": 0,
+      "t_end": 118,
+      "qkv": "bf16",
+      "o": "bf16",
+      "up": "bf16",
+      "down": "bf16",
+      "q_short": "B,B,B,B",
+      "q_label": "Q(null)",
+      "speedup_vs_bf16": 1.0,
+      "speedup_vs_csgmv": 0.86
+    },
+    {
+      "name": "Hybrid mixed",
+      "batch_start": 128,
+      "batch_end": 64,
+      "t_start": 118,
+      "t_end": 192,
+      "qkv": "bf16",
+      "o": "bf16",
+      "up": "int4+torch2s",
+      "down": "int4+torch2s",
+      "q_short": "B,B,I,I",
+      "q_label": "Q(up, down)",
+      "speedup_vs_bf16": 1.38,
+      "speedup_vs_csgmv": 1.92
+    },
+    {
+      "name": "QLoRA selective",
+      "batch_start": 64,
+      "batch_end": 32,
+      "t_start": 192,
+      "t_end": 286,
+      "qkv": "int4+torch2s",
+      "o": "bf16",
+      "up": "int4+torch2s",
+      "down": "int4+torch2s",
+      "q_short": "I,B,I,I",
+      "q_label": "Q(qkv, up, down)",
+      "speedup_vs_bf16": 2.3,
+      "speedup_vs_csgmv": 3.6
+    },
+    {
+      "name": "QLoRA tail",
+      "batch_start": 32,
+      "batch_end": 1,
+      "t_start": 286,
+      "t_end": 610,
+      "qkv": "int4+torch2s",
+      "o": "int4+torch2s",
+      "up": "int4+torch2s",
+      "down": "int4+torch2s",
+      "q_short": "I,I,I,I",
+      "q_label": "Q(qkv, out, up, down)",
+      "speedup_vs_bf16": 3.15,
+      "speedup_vs_csgmv": 4.05
+    }
+  ]
+}

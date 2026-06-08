@@ -1,0 +1,140 @@
+{
+  "sqlite": ".rollout-profile/qlora-kernel/nsys/rerun_twostream/qwen32b_down_bs1_torch_twostream.sqlite",
+  "kernel_count": 65,
+  "selected_kernel_count": 6,
+  "summary": [
+    {
+      "name": "Marlin",
+      "stream": 142,
+      "count": 10,
+      "median_us": 63.536,
+      "min_us": 52.704,
+      "max_us": 66.016,
+      "mean_us": 60.0991,
+      "grid": [
+        107,
+        1,
+        1
+      ],
+      "block": [
+        256,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "vectorized_elementwise_kernel",
+      "stream": 7,
+      "count": 5,
+      "median_us": 52.288,
+      "min_us": 52.0,
+      "max_us": 52.608,
+      "mean_us": 52.2432,
+      "grid": [
+        24576,
+        1,
+        1
+      ],
+      "block": [
+        128,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "dot_kernel",
+      "stream": 7,
+      "count": 10,
+      "median_us": 29.2475,
+      "min_us": 6.496,
+      "max_us": 59.136,
+      "mean_us": 30.195,
+      "grid": [
+        108,
+        1,
+        16
+      ],
+      "block": [
+        128,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "kernel",
+      "stream": 7,
+      "count": 10,
+      "median_us": 28.704,
+      "min_us": 3.648,
+      "max_us": 54.144,
+      "mean_us": 28.8224,
+      "grid": [
+        40,
+        1,
+        1
+      ],
+      "block": [
+        2,
+        128,
+        1
+      ]
+    },
+    {
+      "name": "reduce_1Block_kernel",
+      "stream": 7,
+      "count": 10,
+      "median_us": 4.96,
+      "min_us": 3.136,
+      "max_us": 6.24,
+      "mean_us": 4.720000000000001,
+      "grid": [
+        1,
+        1,
+        16
+      ],
+      "block": [
+        128,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "vectorized_elementwise_kernel",
+      "stream": 7,
+      "count": 10,
+      "median_us": 3.232,
+      "min_us": 3.104,
+      "max_us": 3.52,
+      "mean_us": 3.2415999999999996,
+      "grid": [
+        5,
+        1,
+        1
+      ],
+      "block": [
+        128,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "triton_poi_fused_mul_0",
+      "stream": 7,
+      "count": 10,
+      "median_us": 2.24,
+      "min_us": 1.856,
+      "max_us": 2.912,
+      "mean_us": 2.2079999999999997,
+      "grid": [
+        40,
+        1,
+        1
+      ],
+      "block": [
+        128,
+        1,
+        1
+      ]
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "model": "Qwen2.5-14B-Instruct",
+  "dataset": "Eurus-2-RL",
+  "windows": [
+    {
+      "batch_start": 512,
+      "batch_end": 128,
+      "projections": {
+        "qkv": "bf16_merged",
+        "o": "bf16_merged",
+        "up": "bf16_merged",
+        "down": "bf16_merged"
+      },
+      "speedup_vs_bf16": 1.0,
+      "speedup_vs_csgmv": 0.86
+    },
+    {
+      "batch_start": 128,
+      "batch_end": 64,
+      "projections": {
+        "qkv": "bf16_merged",
+        "o": "bf16_merged",
+        "up": "int4_torch_twostream",
+        "down": "int4_torch_twostream"
+      },
+      "speedup_vs_bf16": 1.38,
+      "speedup_vs_csgmv": 1.92
+    },
+    {
+      "batch_start": 64,
+      "batch_end": 32,
+      "projections": {
+        "qkv": "int4_torch_twostream",
+        "o": "bf16_merged",
+        "up": "int4_torch_twostream",
+        "down": "int4_torch_twostream"
+      },
+      "speedup_vs_bf16": 2.3,
+      "speedup_vs_csgmv": 3.6
+    },
+    {
+      "batch_start": 32,
+      "batch_end": 1,
+      "projections": {
+        "qkv": "int4_torch_twostream",
+        "o": "int4_torch_twostream",
+        "up": "int4_torch_twostream",
+        "down": "int4_torch_twostream"
+      },
+      "speedup_vs_bf16": 3.15,
+      "speedup_vs_csgmv": 4.05
+    }
+  ]
+}

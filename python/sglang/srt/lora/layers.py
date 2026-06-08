@@ -27,6 +27,13 @@ from sglang.srt.layers.vocab_parallel_embedding import (
 from sglang.srt.lora.backend.base_backend import BaseLoRABackend
 from sglang.srt.lora.utils import LoRABatchInfo, get_lm_head_lora_b_shard_size
 
+try:
+    from sglang.srt.model_executor.cuda_graph_runner import (
+        get_is_capture_mode as _get_is_cuda_graph_capture_mode,
+    )
+except Exception:
+    _get_is_cuda_graph_capture_mode = None
+
 
 class BaseLayerWithLoRA(nn.Module):
     def __init__(
@@ -47,6 +54,9 @@ class BaseLayerWithLoRA(nn.Module):
             os.environ.get("SGLANG_LORA_TORCH_TWOSTREAM", "0").lower()
             in ("1", "true", "yes", "on")
         )
+        self.rollout_precision_projection: Optional[str] = None
+        self.rollout_precision_module_name: Optional[str] = None
+        self.rollout_precision_int4_base_layer: Optional[nn.Module] = None
 
     def forward(self, x: torch.Tensor):
         return self.base_layer.forward(x)
@@ -61,9 +71,25 @@ class BaseLayerWithLoRA(nn.Module):
         pass
 
     def _use_torch_twostream_lora(self, x: torch.Tensor) -> bool:
+        if _in_model_cuda_graph_capture():
+            return False
         batch_info = getattr(self.lora_backend, "batch_info", None)
+        decision = getattr(batch_info, "rollout_precision_decision", None)
+        policy_wants_twostream = bool(
+            decision is not None
+            and getattr(decision, "enabled", False)
+            and decision.use_int4_torch_twostream(self.rollout_precision_projection)
+        )
+        if (
+            decision is not None
+            and getattr(decision, "enabled", False)
+            and self.rollout_precision_projection is not None
+        ):
+            twostream_enabled = policy_wants_twostream
+        else:
+            twostream_enabled = self.lora_torch_twostream
         return (
-            self.lora_torch_twostream
+            twostream_enabled
             and getattr(self.lora_backend, "name", None) == "torch_native"
             and x.is_cuda
             and getattr(batch_info, "has_active_lora", False)
@@ -74,12 +100,92 @@ class BaseLayerWithLoRA(nn.Module):
         if not self.set_lora:
             return False
         batch_info = getattr(self.lora_backend, "batch_info", None)
-        return bool(getattr(batch_info, "is_decode", False))
+        if not bool(getattr(batch_info, "is_decode", False)):
+            return False
+
+        decision = getattr(batch_info, "rollout_precision_decision", None)
+        if (
+            decision is not None
+            and getattr(decision, "enabled", False)
+            and self.rollout_precision_projection is not None
+            and decision.use_bf16_merged(self.rollout_precision_projection)
+            and getattr(batch_info, "rollout_precision_assume_merged_bf16", False)
+        ):
+            return False
+
+        return True
 
     def _get_lora_stream(self, device: torch.device) -> torch.cuda.Stream:
         if self._lora_twostream_side_stream is None:
             self._lora_twostream_side_stream = torch.cuda.Stream(device=device)
         return self._lora_twostream_side_stream
+
+    def _use_rollout_int4_base(self) -> bool:
+        batch_info = getattr(self.lora_backend, "batch_info", None)
+        decision = getattr(batch_info, "rollout_precision_decision", None)
+        return bool(
+            self.rollout_precision_int4_base_layer is not None
+            and decision is not None
+            and getattr(decision, "enabled", False)
+            and self.rollout_precision_projection is not None
+            and decision.use_int4(self.rollout_precision_projection)
+            and getattr(batch_info, "is_decode", False)
+        )
+
+    def _selected_base_layer(self) -> nn.Module:
+        batch_info = getattr(self.lora_backend, "batch_info", None)
+        decision = getattr(batch_info, "rollout_precision_decision", None)
+        if (
+            decision is not None
+            and getattr(decision, "enabled", False)
+            and self.rollout_precision_projection is not None
+            and decision.use_int4(self.rollout_precision_projection)
+            and getattr(batch_info, "is_decode", False)
+            and self.rollout_precision_int4_base_layer is None
+        ):
+            raise RuntimeError(
+                "Rollout precision policy selected INT4 for "
+                f"{self.rollout_precision_module_name or self.rollout_precision_projection} "
+                "but no INT4 shadow layer is attached. Start the server with "
+                "--rollout-precision-int4-model-path."
+            )
+        if self._use_rollout_int4_base():
+            return self.rollout_precision_int4_base_layer
+        return self.base_layer
+
+    @staticmethod
+    def _linear_bias(layer: nn.Module, fallback: Optional[torch.Tensor] = None):
+        bias = getattr(layer, "bias", None)
+        return bias if bias is not None else fallback
+
+    def _column_base_forward(self, input_: torch.Tensor, fallback_bias=None):
+        base_layer = self._selected_base_layer()
+        bias = (
+            None
+            if base_layer.skip_bias_add
+            else self._linear_bias(base_layer, fallback_bias)
+        )
+        output_parallel = base_layer.quant_method.apply(base_layer, input_, bias)
+        return output_parallel, base_layer
+
+    def _row_base_forward(self, input_: torch.Tensor, bias_, fallback_bias=None):
+        base_layer = self._selected_base_layer()
+        if base_layer is self.base_layer:
+            bias = bias_
+        else:
+            bias = (
+                None
+                if (base_layer.tp_rank > 0 or base_layer.skip_bias_add)
+                else self._linear_bias(base_layer, fallback_bias)
+            )
+        return base_layer.quant_method.apply(base_layer, input_, bias), base_layer
+
+
+def _in_model_cuda_graph_capture() -> bool:
+    return bool(
+        _get_is_cuda_graph_capture_mode is not None
+        and _get_is_cuda_graph_capture_mode()
+    )
 
 
 class VocabParallelEmbeddingWithLoRA(BaseLayerWithLoRA):
@@ -235,7 +341,7 @@ class VocabParallelEmbeddingWithLoRA(BaseLayerWithLoRA):
             base_output = self.extra_token_embedding(input_, base_output)
 
         # Apply LoRA if configured
-        if self.set_lora:
+        if self._apply_lora_this_pass():
             # The backend's run_lora_a_embedding now handles both regular
             # and extra tokens efficiently with CUDA graph support
             base_output = self.apply_lora(base_output, input_, batch_info)
@@ -401,7 +507,7 @@ class ParallelLMHeadWithLoRA(BaseLayerWithLoRA):
         )
 
         # Apply LoRA if set
-        if self.set_lora:
+        if self._apply_lora_this_pass():
             base_output = self.apply_lora(base_output, hidden_states)
 
         return base_output
@@ -495,8 +601,8 @@ class ColumnParallelLinearWithLoRA(BaseLayerWithLoRA):
             with torch.cuda.stream(lora_stream):
                 lora_output = self.apply_lora(None, input_)
 
-        output_parallel = self.base_layer.quant_method.apply(
-            self.base_layer, input_, bias
+        output_parallel, selected_base_layer = self._column_base_forward(
+            input_, fallback_bias=bias
         )
 
         if self._apply_lora_this_pass():
@@ -506,11 +612,15 @@ class ColumnParallelLinearWithLoRA(BaseLayerWithLoRA):
                 torch.cuda.current_stream(input_.device).wait_stream(lora_stream)
                 output_parallel = output_parallel + lora_output
 
-        if self.base_layer.gather_output:
+        if selected_base_layer.gather_output:
             output = tensor_model_parallel_all_gather(output_parallel)
         else:
             output = output_parallel
-        output_bias = self.base_layer.bias if self.base_layer.skip_bias_add else None
+        output_bias = (
+            self._linear_bias(selected_base_layer, self.base_layer.bias)
+            if selected_base_layer.skip_bias_add
+            else None
+        )
         return output, output_bias
 
     def slice_lora_a_weights(self, A: torch.Tensor, tp_rank: int):
@@ -780,8 +890,8 @@ class RowParallelLinearWithLoRA(BaseLayerWithLoRA):
             with torch.cuda.stream(lora_stream):
                 lora_output_parallel = self.apply_lora(None, input_parallel)
 
-        output_parallel = self.base_layer.quant_method.apply(
-            self.base_layer, input_parallel, bias=bias_
+        output_parallel, selected_base_layer = self._row_base_forward(
+            input_parallel, bias_, fallback_bias=self.base_layer.bias
         )
 
         if self._apply_lora_this_pass() and should_reduce:
@@ -811,7 +921,11 @@ class RowParallelLinearWithLoRA(BaseLayerWithLoRA):
             else:
                 output_ = output_parallel
 
-        output_bias = self.base_layer.bias if self.base_layer.skip_bias_add else None
+        output_bias = (
+            self._linear_bias(selected_base_layer, self.base_layer.bias)
+            if selected_base_layer.skip_bias_add
+            else None
+        )
         return output_, output_bias
 
     def slice_lora_a_weights(self, A: torch.Tensor, tp_rank: int):
@@ -902,10 +1016,20 @@ class ReplicatedLinearWithLoRA(BaseLayerWithLoRA):
 
     def forward(self, x: torch.Tensor):
         bias = self.base_layer.bias if not self.base_layer.skip_bias_add else None
-        output = self.base_layer.quant_method.apply(self.base_layer, x, bias)
-        if self.set_lora:
+        base_layer = self._selected_base_layer()
+        selected_bias = (
+            None
+            if base_layer.skip_bias_add
+            else self._linear_bias(base_layer, fallback=bias)
+        )
+        output = base_layer.quant_method.apply(base_layer, x, selected_bias)
+        if self._apply_lora_this_pass():
             output = self.apply_lora(output, x)
-        output_bias = self.base_layer.bias if self.base_layer.skip_bias_add else None
+        output_bias = (
+            self._linear_bias(base_layer, self.base_layer.bias)
+            if base_layer.skip_bias_add
+            else None
+        )
         return output, output_bias
 
     def slice_lora_a_weights(self, A: torch.Tensor, tp_rank: int):
@@ -1053,10 +1177,11 @@ class FusedMoEWithLoRA(BaseLayerWithLoRA):
         2. After down projection, before final reduction
         """
 
-        # Build LoRA info for this batch
-        lora_info = self._get_lora_info()
+        if not self._apply_lora_this_pass():
+            return self.base_layer.forward(hidden_states, topk_output)
 
         # run lora moe_runner
+        lora_info = self._get_lora_info()
         return self._forward_with_lora(hidden_states, topk_output, lora_info, **kwargs)
 
     def _forward_with_lora(

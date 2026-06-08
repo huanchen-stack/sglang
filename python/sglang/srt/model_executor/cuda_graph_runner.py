@@ -997,10 +997,23 @@ class CudaGraphRunner:
                 spec_info.capture_hidden_mode if spec_info else CaptureHiddenMode.NULL
             )
 
+        rollout_precision_decision = None
+        rollout_precision_policy = getattr(
+            self.model_runner, "rollout_precision_policy", None
+        )
+        if rollout_precision_policy is not None:
+            rollout_precision_decision = rollout_precision_policy.select(
+                bs,
+                is_decode=self.capture_forward_mode.is_decode(),
+            )
+
         if self.model_runner.server_args.enable_lora:
-            # It is safe to capture CUDA graph using empty LoRA id, as the LoRA kernels will always be launched whenever
-            # `--enable-lora` is set to True (and return immediately if the LoRA id is empty for perf optimization).
-            lora_ids = [None] * bs
+            # Standard LoRA can capture with empty IDs. Rollout precision needs
+            # a real adapter during capture when the selected graph contains
+            # INT4+LoRA branches, because those branches are Python-controlled.
+            lora_ids = self.model_runner.lora_manager.get_cuda_graph_capture_lora_ids(
+                bs, rollout_precision_decision
+            )
         else:
             lora_ids = None
 
@@ -1050,6 +1063,7 @@ class CudaGraphRunner:
             num_token_non_padded=buffers.num_token_non_padded,
             global_forward_mode=self.capture_forward_mode,
             lora_ids=lora_ids,
+            rollout_precision_decision=rollout_precision_decision,
         )
 
         # Trip the coordinator so the hisparse code path is captured into the

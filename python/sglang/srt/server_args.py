@@ -549,6 +549,11 @@ class ServerArgs:
     lora_use_virtual_experts: bool = False
     lora_strict_loading: bool = False
     lora_drain_wait_threshold: float = 0.0
+    rollout_precision_policy: Optional[str] = None
+    rollout_precision_int4_model_path: Optional[str] = None
+    rollout_precision_int4_load_format: Optional[str] = None
+    rollout_precision_assume_merged_bf16: bool = False
+    rollout_precision_force_torch_lora: bool = True
 
     # Kernel backend
     attention_backend: Optional[str] = None
@@ -5438,6 +5443,37 @@ class ServerArgs:
             default=ServerArgs.lora_drain_wait_threshold,
             help="When any LoRA adapter request waits longer than this threshold (in seconds), the scheduler will selectively drain one running adapter to make room. This mitigates extreme tail latency under high or skewed workloads by preventing a small set of adapters from monopolizing batch slots. Set to 0 to disable draining (default).",
         )
+        parser.add_argument(
+            "--rollout-precision-policy",
+            type=str,
+            default=ServerArgs.rollout_precision_policy,
+            help="Path to a decode-only rollout precision policy JSON. Prefill always uses the base BF16 path; the policy is only consulted for decode batches.",
+        )
+        parser.add_argument(
+            "--rollout-precision-int4-model-path",
+            type=str,
+            default=ServerArgs.rollout_precision_int4_model_path,
+            help="Optional path to a quantized INT4 shadow model. When set, decode policy windows that select INT4 use matching shadow projection layers for the base matmul while prefill stays on the primary BF16 model.",
+        )
+        parser.add_argument(
+            "--rollout-precision-int4-load-format",
+            type=str,
+            default=ServerArgs.rollout_precision_int4_load_format,
+            help="Optional load format override for --rollout-precision-int4-model-path. Defaults to the main --load-format.",
+        )
+        parser.add_argument(
+            "--rollout-precision-assume-merged-bf16",
+            action="store_true",
+            default=ServerArgs.rollout_precision_assume_merged_bf16,
+            help="Allow policy windows that select bf16_merged to skip LoRA adapter compute. Use only when BF16 weights already include the merged adapter.",
+        )
+        parser.add_argument(
+            "--no-rollout-precision-force-torch-lora",
+            dest="rollout_precision_force_torch_lora",
+            action="store_false",
+            default=ServerArgs.rollout_precision_force_torch_lora,
+            help="Do not automatically switch --lora-backend to torch_native when a rollout precision policy is provided.",
+        )
 
         # Kernel backend
         parser.add_argument(
@@ -7290,6 +7326,23 @@ class ServerArgs:
 
     def check_lora_server_args(self):
         assert self.max_loras_per_batch > 0, "max_loras_per_batch must be positive"
+
+        if self.rollout_precision_policy:
+            from sglang.srt.rollout_precision import RolloutPrecisionPolicy
+
+            RolloutPrecisionPolicy.from_file(self.rollout_precision_policy)
+            if self.enable_lora is None:
+                self.enable_lora = True
+                logger.warning(
+                    "--enable-lora is set to True because --rollout-precision-policy is provided."
+                )
+            if self.rollout_precision_force_torch_lora and self.lora_backend != "torch_native":
+                logger.warning(
+                    "Using torch_native LoRA backend because --rollout-precision-policy "
+                    "targets the decode-only torch two-stream LoRA path. Pass "
+                    "--no-rollout-precision-force-torch-lora to keep the configured backend."
+                )
+                self.lora_backend = "torch_native"
 
         # Enable LoRA if any LoRA paths are provided for backward compatibility.
         if self.lora_paths:

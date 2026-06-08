@@ -53,6 +53,7 @@ from sglang.srt.layers.utils.cp_utils import ContextParallelMetadata
 from sglang.srt.model_executor.forward_batch_deepseek_mha_mixin import (
     ForwardBatchDeepSeekMHAMixin,
 )
+from sglang.srt.rollout_precision import RolloutPrecisionDecision
 from sglang.srt.server_args import get_global_server_args
 from sglang.srt.utils import (
     is_cuda,
@@ -369,6 +370,7 @@ class ForwardBatch(ForwardBatchDeepSeekMHAMixin):
     # === Derived from ScheduleBatch.reqs ===
     # For LoRA
     lora_ids: Optional[List[str]] = None
+    rollout_precision_decision: Optional[RolloutPrecisionDecision] = None
     # For dumper: request IDs for cross-step sequence tracking
     rids: Optional[List[str]] = None
 
@@ -560,6 +562,16 @@ class ForwardBatch(ForwardBatchDeepSeekMHAMixin):
             # Compound (carry their own device tensors)
             sampling_info=batch.sampling_info,
             spec_info=batch.spec_info,
+        )
+
+        policy = getattr(model_runner, "rollout_precision_policy", None)
+        ret.rollout_precision_decision = (
+            policy.select(
+                ret.batch_size,
+                is_decode=ret.forward_mode.is_decode(),
+            )
+            if policy is not None
+            else RolloutPrecisionDecision.disabled()
         )
 
         device = model_runner.device

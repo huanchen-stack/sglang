@@ -131,6 +131,7 @@ async def run_one_request(
     top_k: int,
     stream_interval: int,
     stream_idle_timeout_s: float,
+    lora_path: str | None,
     queue: asyncio.Queue,
 ) -> RequestSummary:
     url = f"{normalize_base_url(base_url)}/generate"
@@ -147,6 +148,8 @@ async def run_one_request(
         "stream": True,
         "return_logprob": False,
     }
+    if lora_path is not None:
+        payload["lora_path"] = lora_path
     summary = RequestSummary(
         request_id=request_id,
         success=False,
@@ -225,6 +228,7 @@ async def run_batch(args: argparse.Namespace) -> None:
                 top_k=args.top_k,
                 stream_interval=args.stream_interval,
                 stream_idle_timeout_s=args.stream_idle_timeout_s,
+                lora_path=args.lora_path,
                 queue=queue,
             )
             for i, prompt in enumerate(prompts)
@@ -246,6 +250,7 @@ async def run_batch(args: argparse.Namespace) -> None:
             "top_k": args.top_k,
             "stream_interval": args.stream_interval,
             "stream_idle_timeout_s": args.stream_idle_timeout_s,
+            "lora_path": args.lora_path,
             "ignore_eos": False,
             "wall_start_s": start_s,
             "wall_end_s": end_s,
@@ -284,6 +289,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--stream-interval", type=int, default=64)
     parser.add_argument("--stream-idle-timeout-s", type=float, default=300.0)
     parser.add_argument("--prompt-suffix", default="")
+    parser.add_argument("--lora-path", default=None)
     parser.add_argument("--ready-timeout-s", type=float, default=300.0)
     parser.add_argument("--request-timeout-s", type=float, default=21600.0)
     parser.add_argument("--event-queue-size", type=int, default=100000)

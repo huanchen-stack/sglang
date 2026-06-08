@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Iterable, List, Optional, Set, Tuple, Union
 
 import torch
 
@@ -67,6 +67,16 @@ class LoRABatchInfo:
     # CPU-side flag: True for decode-mode batches. The experimental
     # two-stream LoRA path is decode-only; prefill keeps the base path.
     is_decode: bool = False
+
+    # Decode-only rollout precision policy selected by ForwardBatch. This is
+    # intentionally stored as Any to avoid importing rollout_precision from this
+    # general LoRA utility module.
+    rollout_precision_decision: Optional[Any] = None
+
+    # If True, a bf16_merged policy choice may skip LoRA adapter compute because
+    # the BF16 base weights already include the adapter. If False, adapter math
+    # is retained for correctness even when the policy labels a BF16 window.
+    rollout_precision_assume_merged_bf16: bool = False
 
     # Per-request segment indptrs, shape (bs + 1,). Required by MoE virtual
     # experts which map tokens to requests regardless of the dense-LoRA

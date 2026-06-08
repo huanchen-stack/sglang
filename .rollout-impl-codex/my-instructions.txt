@@ -1,0 +1,68 @@
+in this task you need to implement a system that dynamically switch between precisions for rl-rollout
+
+in .rollout-profile, we already showed our insights with data. here's our insight:
+
+1. rollout is batch serving with long tail, the long tail is memory bounded and inefficient when compute naively, 
+    we want to use quantization to speedup the process
+2. naive qlora uses the csgmv backend, which is optimized for servingmultiple lora patches at the same time
+    it doesn't have finer gemm curation, and only uses naive triton code
+    during the shrink process of lora, the output of gemm is very small, with only m,n split, we are using only 1 sm, extremely inefficient
+    i managed to use torch gemm for lora, which seems to have split-k gemm support and speed up lora
+    i also leverage two streams to make the torch lora even faster
+3. though profiled without kv cache consideration, our methods showed promising speedup results for certain rl rollout workloads
+
+the task is to implement a system that dynamically switch precision to get the best throughput/rollout-latency during rollout
+
+there are two precisions you need to consider:
+(not considered) bf16 with lora patch: this is not considered because rollout is very time consuming; alternative approach is to 
+    merge the lora weights into the model weights, so that during rollout there is only one model weight, completely removing lora overhead
+1. bf16 weights: lora is merged into weigths as suggested
+2. int4 weights with bf16 lora patch: use our two stream + torch method to make it fast
+
+so the model should have the capability to switch between precisions during serving:
+    at the initial phase of rollout, we use bf16 weights
+    as the rollout progress, the batch size shrinks, and we change to int4 weights with lora
+i think this is doable for decoding because during the inital setup of the sglang server, we need to capture cudagraph for each of the batch size
+    during which process we can easily use different precisions for different cudagraphs
+
+however, our system also needs to know when to use which precision:
+    this is given with a json configuration upon the start of server
+    we can offline profile the kernel performance of different weights: qkv/o/up/down as we did in .rollout-profile
+        and use this information to guide our system how to swap precisions
+    we need the profile for each of the model we are serving
+    such profiling should be embedded into the system itself: when no json is provided: we need to do the same kernel benchmark just like our profile
+        and provide the json or cached json as the system input
+
+becase we are swapping between precisions, we need both model weights: 
+    for now do not consider offloading but leave that as something that could be possible (with .to() )
+    right now we need to load both model weights in the vram. you may refer to hetermoe branch for how i load both precisions in vram previously
+
+choice of dataset and model:
+1. pick the long tail configs from our profile. you need to make sure there are long tails....
+
+there are several testing you need to maintain throughout the implementation:
+1. accuracy guarantee: we need kernel wise guarantee that our code modification is correct:
+    you only need a kernel-wise test: compare the two configurations and make sure we are not missing gemms to compute
+2. parallelism setup: you need to test both baselines and our system with both tp1 and tp4
+3. efficiency benchmark: we need to measure the efficiency of our system
+    there are two baselines: 
+        one is pure bf16 weights with merged lora. 
+        the other is the naive qlora baseline: use int4 weights+csgmv lora (the default behavior of sglang)
+    you need to show our system performs the best over both parallelism
+4. you need to measure the vram status throughout the rollout and measure how having one additional quantized model weight would affect our system
+
+deliverable: 
+for baseline: simple rollout behavior for the life time 
+for our system: a plot demonstrating the lifetime of rollout requests, for differen choice of precisions mark the time frame: for example 
+    Q(qkv, up, down) = x2.3/x3.6 means:
+        the qkv up and down tensors is replaced with int4 weight with lora;
+        the corresponding speedup compared to bf16 serving is 2.3 times faster; compared to int4 with csgmv lora is 3.6 times faster
+    the definition of faster: find the exact batch size start and end in the baseline , calculate the time spent with baseline
+    for example we decide to switch precision at batch 64-32, 32-16 (they could have same precision), we look up the baseline and find
+        when bf16 rollout has 64 request left, what is the time, when is has 32 request left , 16 requests left, what's the time, 
+        use the duration to compute our speedup
+
+supplementary: if you realize that having an additional model weight is troublesome, brainstorm on offloading strategies:
+    for example, at certains batch size, start swapping bf16 weights with int4 weights and this could also be done layer by layer gradually
+        for example, at batch 64, swap a few layers, at batch 56, swap another few layers, at batch 48, swap is done for full model... 
+        no hurries on this last part

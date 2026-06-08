@@ -43,6 +43,7 @@ from sglang.srt.lora.utils import (
 )
 from sglang.srt.managers.io_struct import LoRAUpdateOutput
 from sglang.srt.model_executor.forward_batch_info import ForwardBatch
+from sglang.srt.rollout_precision import projection_from_module_name
 from sglang.srt.server_args import ServerArgs
 from sglang.srt.utils import replace_submodule
 from sglang.srt.utils.hf_transformers_utils import AutoConfig
@@ -65,8 +66,10 @@ class LoRAManager:
         max_lora_rank: Optional[int] = None,
         target_modules: Optional[Iterable[str]] = None,
         lora_paths: Optional[List[LoRARef]] = None,
+        rollout_precision_int4_model: Optional[torch.nn.Module] = None,
     ):
         self.base_model: torch.nn.Module = base_model
+        self.rollout_precision_int4_model = rollout_precision_int4_model
         if hasattr(base_hf_config, "get_text_config"):
             self.base_hf_config: AutoConfig = base_hf_config.get_text_config()
         else:
@@ -75,6 +78,7 @@ class LoRAManager:
         self.load_config: LoadConfig = load_config
         self.dtype: torch.dtype = dtype
         self.device: torch.device = next(self.base_model.parameters()).device
+        self.server_args = server_args
         self.tp_size: int = tp_size
         self.tp_rank: int = tp_rank
         self.lora_added_tokens_size: Optional[int] = None
@@ -302,6 +306,27 @@ class LoRAManager:
             lora_lm_head_module=self.lm_head_module,  # merge into embedding or lora module
         )
 
+    def get_cuda_graph_capture_lora_ids(
+        self, bs: int, rollout_decision
+    ) -> List[Optional[str]]:
+        if not (
+            rollout_decision is not None
+            and getattr(rollout_decision, "enabled", False)
+            and rollout_decision.uses_any_int4()
+        ):
+            return [None] * bs
+
+        lora_id = next(iter(self.loras), None)
+        if lora_id is None:
+            logger.warning(
+                "Rollout precision CUDA graph capture selected INT4, but no LoRA "
+                "adapter is loaded yet. Capturing the base-LoRA path."
+            )
+            return [None] * bs
+
+        self.fetch_new_loras({lora_id})
+        return [lora_id] * bs
+
     def prepare_lora_batch(self, forward_batch: ForwardBatch):
         # set up batch info shared by all lora modules
         bs = forward_batch.batch_size
@@ -336,6 +361,12 @@ class LoRAManager:
             lora_ranks[wi] > 0 for wi in weight_indices
         )
         self.lora_backend.batch_info.is_decode = forward_batch.forward_mode.is_decode()
+        self.lora_backend.batch_info.rollout_precision_decision = (
+            forward_batch.rollout_precision_decision
+        )
+        self.lora_backend.batch_info.rollout_precision_assume_merged_bf16 = (
+            self.server_args.rollout_precision_assume_merged_bf16
+        )
 
     def update_lora_info(self):
         """
@@ -716,6 +747,24 @@ class LoRAManager:
     def set_lora_module(self, module_name, module):
         """Wrap any module (standard or MoE) with LoRA support."""
         lora_module = get_lora_layer(module, self.lora_backend)
+        lora_module.rollout_precision_projection = projection_from_module_name(
+            module_name
+        )
+        lora_module.rollout_precision_module_name = module_name
+        if (
+            self.rollout_precision_int4_model is not None
+            and lora_module.rollout_precision_projection is not None
+        ):
+            try:
+                lora_module.rollout_precision_int4_base_layer = (
+                    self.rollout_precision_int4_model.get_submodule(module_name)
+                )
+            except AttributeError:
+                logger.warning(
+                    "Rollout precision INT4 shadow model is missing module %s; "
+                    "falling back to BF16 for this module.",
+                    module_name,
+                )
         replace_submodule(self.base_model, module_name, lora_module)
         return lora_module
 

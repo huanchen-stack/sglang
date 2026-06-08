@@ -1,0 +1,132 @@
+{
+  "metadata": {
+    "fake": false,
+    "created_unix": 1780901457.6869814,
+    "config": {
+      "hidden_size": 4096,
+      "output_size": 11008,
+      "lora_rank": 16,
+      "lora_alpha": 16.0,
+      "dtype": "bf16",
+      "quant_type": "uint4b8",
+      "group_size": 128,
+      "act_order": false,
+      "warmup_iters": 5,
+      "measure_iters": 5,
+      "l2_flush_mib": 96,
+      "max_loras_per_batch": 8,
+      "max_lora_chunk_size": 16,
+      "activation_prewarm": true,
+      "torch_compile": true,
+      "cuda_graph": true,
+      "compile_mode": "default",
+      "two_stream_reserve_sms": 1
+    },
+    "model_configs": [
+      {
+        "model": "qwen2.5-32b",
+        "layers": 64,
+        "hidden_size": 5120,
+        "kv_out": 1024,
+        "intermediate_size": 27648,
+        "projections": [
+          {
+            "name": "qkv",
+            "kind": "qkv",
+            "in_features": 5120,
+            "out_features": 7168,
+            "slice_sizes": [
+              5120,
+              1024,
+              1024
+            ]
+          },
+          {
+            "name": "o",
+            "kind": "simple",
+            "in_features": 5120,
+            "out_features": 5120,
+            "slice_sizes": [
+              5120
+            ]
+          },
+          {
+            "name": "gate_up",
+            "kind": "gate_up",
+            "in_features": 5120,
+            "out_features": 55296,
+            "slice_sizes": [
+              27648,
+              27648
+            ]
+          },
+          {
+            "name": "down",
+            "kind": "simple",
+            "in_features": 27648,
+            "out_features": 5120,
+            "slice_sizes": [
+              5120
+            ]
+          }
+        ],
+        "lora_rank": 16,
+        "lora_alpha": 16.0,
+        "dtype": "bf16",
+        "quant_type": "uint4b8",
+        "group_size": 128
+      }
+    ],
+    "scheme_order": [
+      "bf16 dense base",
+      "int4 Marlin base",
+      "SGLang csgmv LoRA patch",
+      "SGLang triton LoRA patch",
+      "Torch matmul LoRA patch",
+      "bf16 dense + csgmv sequential",
+      "bf16 dense + triton sequential",
+      "bf16 dense + torch matmul sequential",
+      "bf16 dense + torch matmul two-stream",
+      "SGLang QLoRA csgmv sequential",
+      "SGLang QLoRA csgmv two-stream",
+      "SGLang QLoRA triton sequential",
+      "SGLang QLoRA triton two-stream",
+      "Torch QLoRA matmul sequential",
+      "Torch QLoRA matmul two-stream"
+    ],
+    "research_summary": [
+      "SGLang default LoRA backend is csgmv/ChunkedSGMV.",
+      "This benchmark directly constructs LoRABatchInfo and calls the SGLang csgmv backend.",
+      "QKV and gate/up use fused SGLang LoRA projection groups.",
+      "csgmv rows launch the SGLang backend directly inside CUDA Graph; base Marlin and dense callables use torch.compile.",
+      "Two-stream is still an experimental overlap comparison, not default SGLang behavior.",
+      "SM reservation is applied only inside two-stream Marlin callables; regular base and sequential paths clear SGLANG_MARLIN_RESERVE_SMS."
+    ]
+  },
+  "measurements": [
+    {
+      "model": "qwen2.5-32b",
+      "projection": "down",
+      "projection_kind": "simple",
+      "in_features": 27648,
+      "out_features": 5120,
+      "token_rows": 1,
+      "scheme": "Torch QLoRA matmul two-stream",
+      "latency_us": 83.64800363779068,
+      "median_us": 83.64800363779068,
+      "p20_us": 83.32800269126892,
+      "p80_us": 89.11360204219818,
+      "min_us": 82.56000280380249,
+      "max_us": 104.19200360774994,
+      "warmup_iters": 5,
+      "measure_iters": 5,
+      "compiled": true,
+      "cuda_graph": true,
+      "l2_flush_mib": 96,
+      "activation_prewarm": true,
+      "fake": false,
+      "error": null,
+      "note": "Plain bf16 torch.matmul LoRA patch on a side stream while Marlin base runs."
+    }
+  ]
+}

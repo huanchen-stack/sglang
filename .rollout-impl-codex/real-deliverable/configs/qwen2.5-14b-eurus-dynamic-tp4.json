@@ -1,0 +1,48 @@
+{
+  "name": "qwen2.5-14b-instruct-eurus-2-rl-dynamic",
+  "model_path": "Qwen/Qwen2.5-14B-Instruct",
+  "served_model_name": "qwen2.5-14b-instruct-dynamic",
+  "dataset_path": "/data/huanchen/sglang/.rollout-profile/request-lifetime-cot/datasets/eurus-2-rl-qwen2.5-14b-instruct.jsonl",
+  "dataset_name": "PRIME-RL/Eurus-2-RL-Data",
+  "batch_sizes": [128, 256, 512],
+  "max_new_tokens": 32768,
+  "temperature": 0.9,
+  "top_p": 0.95,
+  "top_k": 20,
+  "stream_interval": 64,
+  "stream_idle_timeout_s": 300,
+  "tp_size": 4,
+  "gpus": "0,1,2,3",
+  "dtype": "bfloat16",
+  "context_length": 36864,
+  "mem_fraction_static": null,
+  "ready_timeout_s": 2400,
+  "request_timeout_s": 21600,
+  "common_server_args": [
+    "--attention-backend", "triton",
+    "--disable-radix-cache",
+    "--enable-torch-compile",
+    "--torch-compile-max-bs", "512"
+  ],
+  "cuda_graph_bs_by_batch": {
+    "128": [1, 2, 4, 8, 16, 32, 64, 128],
+    "256": [1, 2, 4, 8, 16, 32, 64, 128, 256],
+    "512": [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]
+  },
+  "lora_name": "default",
+  "lora_path": "/data/huanchen/._delete/adapters/qwen2.5-14b_rank16_zero_bf16",
+  "request_lora_path": "default",
+  "lora_backend": "torch_native",
+  "max_lora_rank": 16,
+  "max_loras_per_batch": 1,
+  "rollout_precision_policy": ".rollout-impl-codex/policies/qwen2.5-14b-eurus-demo.json",
+  "rollout_precision_int4_model_path": "Qwen/Qwen2.5-14B-Instruct-GPTQ-Int4",
+  "rollout_precision_assume_merged_bf16": true,
+  "env": {
+    "SGLANG_ALLOW_OVERWRITE_LONGER_CONTEXT_LEN": "1",
+    "SGLANG_LORA_TORCH_TWOSTREAM": "1",
+    "SGLANG_LORA_TWOSTREAM_RESERVE_SMS": "1",
+    "SGLANG_MARLIN_RESERVE_SMS": "1"
+  },
+  "prompt_suffix": ""
+}
