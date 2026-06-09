@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 from typing import Callable, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Union
 
@@ -31,6 +32,10 @@ from sglang.srt.lora.utils import (
 from sglang.srt.utils.hf_transformers_utils import AutoConfig
 
 logger = logging.getLogger(__name__)
+
+
+def _shape_tuple(tensor: Optional[torch.Tensor]) -> Optional[Tuple[int, ...]]:
+    return tuple(tensor.shape) if isinstance(tensor, torch.Tensor) else None
 
 
 class EmptySlot:
@@ -119,6 +124,10 @@ class LoRAMemoryPool:
         self.target_modules: Set[str] = target_modules
         self.experts_shared_outer_loras: bool = experts_shared_outer_loras
         self.strict_loading: bool = strict_loading
+        self.rollout_tp_trace = (
+            os.environ.get("SGLANG_ROLLOUT_TP_TRACE", "0").lower()
+            in ("1", "true", "yes", "on")
+        )
 
         # Under EP with a Triton/DeepGEMM runner, `StandardDispatcher` remaps
         # global `topk_ids` -> local expert IDs before the MoE kernel, so
@@ -846,12 +855,33 @@ class LoRAMemoryPool:
                     continue
 
                 # Handle standard modules
+                a_before_shape = _shape_tuple(temp_A_buffer[target_module])
+                b_before_shape = _shape_tuple(temp_B_buffer[target_module])
                 temp_A_buffer[target_module] = module.slice_lora_a_weights(
                     temp_A_buffer[target_module], self.tp_rank
                 )
                 temp_B_buffer[target_module] = module.slice_lora_b_weights(
                     temp_B_buffer[target_module], self.tp_rank
                 )
+                if (
+                    self.rollout_tp_trace
+                    and layer_id == 0
+                    and target_module in ("gate_up_proj", "down_proj")
+                ):
+                    logger.info(
+                        "Rollout TP trace LoRA slice layer=%s module=%s "
+                        "target=%s tp_rank=%s tp_size=%s A_before=%s "
+                        "A_after=%s B_before=%s B_after=%s",
+                        layer_id,
+                        module_name,
+                        target_module,
+                        self.tp_rank,
+                        self.tp_size,
+                        a_before_shape,
+                        _shape_tuple(temp_A_buffer[target_module]),
+                        b_before_shape,
+                        _shape_tuple(temp_B_buffer[target_module]),
+                    )
 
             for name, weights in temp_A_buffer.items():
                 if name not in active_target_modules:

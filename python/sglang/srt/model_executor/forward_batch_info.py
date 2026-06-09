@@ -369,6 +369,7 @@ class ForwardBatch(ForwardBatchDeepSeekMHAMixin):
     # === Derived from ScheduleBatch.reqs ===
     # For LoRA
     lora_ids: Optional[List[str]] = None
+    is_cuda_graph_capture: bool = False
     # For dumper: request IDs for cross-step sequence tracking
     rids: Optional[List[str]] = None
 

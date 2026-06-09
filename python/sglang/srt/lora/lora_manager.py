@@ -16,6 +16,7 @@
 # and "Punica: Multi-Tenant LoRA Serving"
 
 import logging
+import os
 from typing import Dict, Iterable, List, Optional
 
 import torch
@@ -43,11 +44,19 @@ from sglang.srt.lora.utils import (
 )
 from sglang.srt.managers.io_struct import LoRAUpdateOutput
 from sglang.srt.model_executor.forward_batch_info import ForwardBatch
+from sglang.srt.rollout_weight_colocation import (
+    RolloutPrecisionPolicy,
+    projection_from_module_name,
+)
 from sglang.srt.server_args import ServerArgs
 from sglang.srt.utils import replace_submodule
 from sglang.srt.utils.hf_transformers_utils import AutoConfig
 
 logger = logging.getLogger(__name__)
+
+
+def _shape_tuple(tensor: Optional[torch.Tensor]):
+    return tuple(tensor.shape) if isinstance(tensor, torch.Tensor) else None
 
 
 class LoRAManager:
@@ -65,8 +74,25 @@ class LoRAManager:
         max_lora_rank: Optional[int] = None,
         target_modules: Optional[Iterable[str]] = None,
         lora_paths: Optional[List[LoRARef]] = None,
+        rollout_weight_colocation_int4_model: Optional[torch.nn.Module] = None,
     ):
         self.base_model: torch.nn.Module = base_model
+        self.rollout_weight_colocation_int4_model = rollout_weight_colocation_int4_model
+        self.rollout_weight_colocation_enabled = (
+            rollout_weight_colocation_int4_model is not None
+        )
+        self.rollout_weight_colocation_attached_modules = 0
+        self.rollout_weight_colocation_precision_policy = (
+            RolloutPrecisionPolicy.from_file(
+                server_args.rollout_weight_colocation_precision_policy_path
+            )
+            if server_args.rollout_weight_colocation_precision_policy_path
+            else None
+        )
+        self.rollout_tp_trace = (
+            os.environ.get("SGLANG_ROLLOUT_TP_TRACE", "0").lower()
+            in ("1", "true", "yes", "on")
+        )
         if hasattr(base_hf_config, "get_text_config"):
             self.base_hf_config: AutoConfig = base_hf_config.get_text_config()
         else:
@@ -302,6 +328,21 @@ class LoRAManager:
             lora_lm_head_module=self.lm_head_module,  # merge into embedding or lora module
         )
 
+    def get_cuda_graph_capture_lora_ids(self, bs: int) -> List[Optional[str]]:
+        if not self.rollout_weight_colocation_enabled:
+            return [None] * bs
+
+        lora_id = next(iter(self.loras), None)
+        if lora_id is None:
+            raise RuntimeError(
+                "Rollout weight colocation needs at least one LoRA adapter loaded "
+                "before CUDA graph capture so the INT4+Torch2S decode topology is "
+                "captured. Provide a startup --lora-paths entry for v0."
+            )
+
+        self.fetch_new_loras({lora_id})
+        return [lora_id] * bs
+
     def prepare_lora_batch(self, forward_batch: ForwardBatch):
         # set up batch info shared by all lora modules
         bs = forward_batch.batch_size
@@ -336,6 +377,9 @@ class LoRAManager:
             lora_ranks[wi] > 0 for wi in weight_indices
         )
         self.lora_backend.batch_info.is_decode = forward_batch.forward_mode.is_decode()
+        self.lora_backend.batch_info.is_cuda_graph_capture = bool(
+            getattr(forward_batch, "is_cuda_graph_capture", False)
+        )
 
     def update_lora_info(self):
         """
@@ -454,6 +498,11 @@ class LoRAManager:
         self.init_lora_modules()
         self.init_memory_pool()
         self.update_lora_info()
+        if self.rollout_weight_colocation_enabled:
+            logger.info(
+                "Rollout weight colocation attached INT4 shadow layers to %d LoRA modules.",
+                self.rollout_weight_colocation_attached_modules,
+            )
 
     def init_lora_adapters(self, lora_paths: Optional[List[LoRARef]] = None):
         # Configs of all active LoRA adapters, indexed by LoRA ID.
@@ -716,6 +765,76 @@ class LoRAManager:
     def set_lora_module(self, module_name, module):
         """Wrap any module (standard or MoE) with LoRA support."""
         lora_module = get_lora_layer(module, self.lora_backend)
+        lora_module.rollout_weight_colocation_projection = projection_from_module_name(
+            module_name
+        )
+        lora_module.rollout_weight_colocation_module_name = module_name
+        lora_module.rollout_weight_colocation_enabled = (
+            self.rollout_weight_colocation_enabled
+        )
+        lora_module.rollout_weight_colocation_precision_policy = (
+            self.rollout_weight_colocation_precision_policy
+        )
+        if (
+            self.rollout_weight_colocation_int4_model is not None
+            and lora_module.rollout_weight_colocation_projection is not None
+        ):
+            try:
+                lora_module.rollout_weight_colocation_int4_base_layer = (
+                    self.rollout_weight_colocation_int4_model.get_submodule(module_name)
+                )
+                self.rollout_weight_colocation_attached_modules += 1
+                if (
+                    self.rollout_tp_trace
+                    and module_name
+                    in (
+                        "model.layers.0.mlp.gate_up_proj",
+                        "model.layers.0.mlp.down_proj",
+                    )
+                ):
+                    shadow_layer = lora_module.rollout_weight_colocation_int4_base_layer
+                    tensor_shapes = {
+                        name: _shape_tuple(getattr(shadow_layer, name, None))
+                        for name in (
+                            "weight",
+                            "qweight",
+                            "scales",
+                            "g_idx",
+                            "g_idx_sort_indices",
+                        )
+                    }
+                    local_attrs = {
+                        name: getattr(shadow_layer, name, None)
+                        for name in (
+                            "tp_size",
+                            "tp_rank",
+                            "input_size_per_partition",
+                            "output_size_per_partition",
+                            "output_partition_sizes",
+                            "input_size",
+                            "output_size",
+                        )
+                        if hasattr(shadow_layer, name)
+                    }
+                    logger.info(
+                        "Rollout TP trace INT4 shadow module=%s projection=%s "
+                        "tp_rank=%s tp_size=%s layer_type=%s quant_method=%s "
+                        "local_attrs=%s tensor_shapes=%s",
+                        module_name,
+                        lora_module.rollout_weight_colocation_projection,
+                        self.tp_rank,
+                        self.tp_size,
+                        type(shadow_layer).__name__,
+                        type(getattr(shadow_layer, "quant_method", None)).__name__,
+                        local_attrs,
+                        tensor_shapes,
+                    )
+            except AttributeError:
+                logger.warning(
+                    "Rollout weight colocation INT4 shadow model is missing module "
+                    "%s; decode will fail if this projection is selected.",
+                    module_name,
+                )
         replace_submodule(self.base_model, module_name, lora_module)
         return lora_module
 

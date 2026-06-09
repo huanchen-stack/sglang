@@ -998,9 +998,12 @@ class CudaGraphRunner:
             )
 
         if self.model_runner.server_args.enable_lora:
-            # It is safe to capture CUDA graph using empty LoRA id, as the LoRA kernels will always be launched whenever
-            # `--enable-lora` is set to True (and return immediately if the LoRA id is empty for perf optimization).
-            lora_ids = [None] * bs
+            # Standard LoRA captures with empty IDs. Rollout weight colocation
+            # needs a real startup adapter so the INT4+Torch2S decode topology
+            # is present in the captured graph.
+            lora_ids = self.model_runner.lora_manager.get_cuda_graph_capture_lora_ids(
+                bs
+            )
         else:
             lora_ids = None
 
@@ -1050,6 +1053,7 @@ class CudaGraphRunner:
             num_token_non_padded=buffers.num_token_non_padded,
             global_forward_mode=self.capture_forward_mode,
             lora_ids=lora_ids,
+            is_cuda_graph_capture=True,
         )
 
         # Trip the coordinator so the hisparse code path is captured into the

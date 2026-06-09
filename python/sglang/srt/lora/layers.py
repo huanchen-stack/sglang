@@ -1,5 +1,6 @@
+import logging
 import os
-from typing import Dict, Optional, Union
+from typing import Callable, Dict, Optional, Tuple, Union
 
 import torch
 import torch.nn.functional as F
@@ -26,9 +27,21 @@ from sglang.srt.layers.vocab_parallel_embedding import (
 )
 from sglang.srt.lora.backend.base_backend import BaseLoRABackend
 from sglang.srt.lora.utils import LoRABatchInfo, get_lm_head_lora_b_shard_size
+from sglang.srt.rollout_weight_colocation import (
+    BF16_PRECISION,
+    INT4_TORCH2S_PRECISION,
+    RolloutPrecisionPolicy,
+)
+
+logger = logging.getLogger(__name__)
 
 
 class BaseLayerWithLoRA(nn.Module):
+    _rollout_direct_lora_patch_cache: Dict[
+        Tuple[int, int, Tuple[int, ...], float, Tuple[int, ...], Tuple[int, ...]],
+        Callable,
+    ] = {}
+
     def __init__(
         self,
         base_layer: nn.Module,
@@ -47,6 +60,27 @@ class BaseLayerWithLoRA(nn.Module):
             os.environ.get("SGLANG_LORA_TORCH_TWOSTREAM", "0").lower()
             in ("1", "true", "yes", "on")
         )
+        # Experiment: place the Marlin base on the side stream and the LoRA
+        # patch on the main stream (mirrors the winning kernel-profile config,
+        # where the SM-reserved Marlin runs on the side stream and overlaps).
+        self._rollout_flip_twostream: bool = (
+            os.environ.get("SGLANG_ROLLOUT_FLIP_TWOSTREAM", "0").lower()
+            in ("1", "true", "yes", "on")
+        )
+        self.rollout_weight_colocation_projection: Optional[str] = None
+        self.rollout_weight_colocation_module_name: Optional[str] = None
+        self.rollout_weight_colocation_enabled: bool = False
+        self.rollout_weight_colocation_int4_base_layer: Optional[nn.Module] = None
+        self.rollout_weight_colocation_precision_policy: Optional[
+            RolloutPrecisionPolicy
+        ] = None
+        self._rollout_weight_colocation_trace: bool = (
+            os.environ.get("SGLANG_ROLLOUT_WEIGHT_COLOCATION_TRACE", "0").lower()
+            in ("1", "true", "yes", "on")
+        )
+        self._rollout_weight_colocation_logged_bf16_prefill: bool = False
+        self._rollout_weight_colocation_logged_int4_decode: bool = False
+        self._rollout_weight_colocation_logged_bf16_decode: bool = False
 
     def forward(self, x: torch.Tensor):
         return self.base_layer.forward(x)
@@ -62,8 +96,9 @@ class BaseLayerWithLoRA(nn.Module):
 
     def _use_torch_twostream_lora(self, x: torch.Tensor) -> bool:
         batch_info = getattr(self.lora_backend, "batch_info", None)
+        rollout_decode = self._use_rollout_weight_colocation_int4_base()
         return (
-            self.lora_torch_twostream
+            (self.lora_torch_twostream or rollout_decode)
             and getattr(self.lora_backend, "name", None) == "torch_native"
             and x.is_cuda
             and getattr(batch_info, "has_active_lora", False)
@@ -74,12 +109,380 @@ class BaseLayerWithLoRA(nn.Module):
         if not self.set_lora:
             return False
         batch_info = getattr(self.lora_backend, "batch_info", None)
+        if (
+            self.rollout_weight_colocation_enabled
+            and self.rollout_weight_colocation_projection is not None
+            and getattr(batch_info, "is_decode", False)
+        ):
+            return self._rollout_decode_precision() == INT4_TORCH2S_PRECISION
         return bool(getattr(batch_info, "is_decode", False))
 
     def _get_lora_stream(self, device: torch.device) -> torch.cuda.Stream:
         if self._lora_twostream_side_stream is None:
             self._lora_twostream_side_stream = torch.cuda.Stream(device=device)
         return self._lora_twostream_side_stream
+
+    def _preinit_lora_stream_from_tensors(self, *tensors: Optional[torch.Tensor]):
+        if not (self.lora_torch_twostream or self._rollout_flip_twostream):
+            return
+        for tensor in tensors:
+            if isinstance(tensor, torch.Tensor) and tensor.is_cuda:
+                self._get_lora_stream(tensor.device)
+                return
+
+    def _use_rollout_weight_colocation_int4_base(self) -> bool:
+        batch_info = getattr(self.lora_backend, "batch_info", None)
+        return bool(
+            self.rollout_weight_colocation_enabled
+            and self.rollout_weight_colocation_projection is not None
+            and self.rollout_weight_colocation_int4_base_layer is not None
+            and getattr(batch_info, "is_decode", False)
+            and self._rollout_decode_precision() == INT4_TORCH2S_PRECISION
+        )
+
+    def _rollout_decode_precision(self) -> str:
+        if not (
+            self.rollout_weight_colocation_enabled
+            and self.rollout_weight_colocation_projection is not None
+        ):
+            return INT4_TORCH2S_PRECISION
+
+        policy = self.rollout_weight_colocation_precision_policy
+        if policy is None:
+            return INT4_TORCH2S_PRECISION
+
+        batch_info = getattr(self.lora_backend, "batch_info", None)
+        batch_size = int(getattr(batch_info, "bs", 0) or 0)
+        return policy.precision_for(
+            batch_size, self.rollout_weight_colocation_projection
+        )
+
+    def _selected_base_layer(self) -> nn.Module:
+        if self._use_rollout_weight_colocation_int4_base():
+            self._log_rollout_weight_colocation_path("int4_decode")
+            return self.rollout_weight_colocation_int4_base_layer
+
+        batch_info = getattr(self.lora_backend, "batch_info", None)
+        if (
+            self.rollout_weight_colocation_enabled
+            and self.rollout_weight_colocation_projection is not None
+            and getattr(batch_info, "is_decode", False)
+            and self._rollout_decode_precision() == INT4_TORCH2S_PRECISION
+            and self.rollout_weight_colocation_int4_base_layer is None
+        ):
+            raise RuntimeError(
+                "Rollout weight colocation selected INT4 decode for "
+                f"{self.rollout_weight_colocation_module_name or self.rollout_weight_colocation_projection} "
+                "but no INT4 shadow layer is attached."
+            )
+
+        if (
+            self.rollout_weight_colocation_enabled
+            and self.rollout_weight_colocation_projection is not None
+            and getattr(batch_info, "is_decode", False)
+            and self._rollout_decode_precision() == BF16_PRECISION
+        ):
+            self._log_rollout_weight_colocation_path("bf16_decode")
+
+        if (
+            self.rollout_weight_colocation_enabled
+            and not getattr(batch_info, "is_decode", False)
+        ):
+            self._log_rollout_weight_colocation_path("bf16_prefill")
+
+        return self.base_layer
+
+    def _log_rollout_weight_colocation_path(self, path: str) -> None:
+        if not self._rollout_weight_colocation_trace:
+            return
+        if path == "bf16_prefill":
+            if self._rollout_weight_colocation_logged_bf16_prefill:
+                return
+            self._rollout_weight_colocation_logged_bf16_prefill = True
+        elif path == "int4_decode":
+            if self._rollout_weight_colocation_logged_int4_decode:
+                return
+            self._rollout_weight_colocation_logged_int4_decode = True
+        elif path == "bf16_decode":
+            if self._rollout_weight_colocation_logged_bf16_decode:
+                return
+            self._rollout_weight_colocation_logged_bf16_decode = True
+        else:
+            return
+        logger.info(
+            "Rollout weight colocation path=%s module=%s projection=%s batch_size=%s",
+            path,
+            self.rollout_weight_colocation_module_name,
+            self.rollout_weight_colocation_projection,
+            getattr(getattr(self.lora_backend, "batch_info", None), "bs", None),
+        )
+
+    @staticmethod
+    def _linear_bias(layer: nn.Module, fallback: Optional[torch.Tensor] = None):
+        bias = getattr(layer, "bias", None)
+        return bias if bias is not None else fallback
+
+    def _column_base_forward(self, input_: torch.Tensor, fallback_bias=None):
+        base_layer = self._selected_base_layer()
+        bias = (
+            None
+            if base_layer.skip_bias_add
+            else self._linear_bias(base_layer, fallback_bias)
+        )
+        output_parallel = base_layer.quant_method.apply(base_layer, input_, bias)
+        return output_parallel, base_layer
+
+    def _row_base_forward(self, input_: torch.Tensor, bias_, fallback_bias=None):
+        base_layer = self._selected_base_layer()
+        if base_layer is self.base_layer:
+            bias = bias_
+        else:
+            bias = (
+                None
+                if (base_layer.tp_rank > 0 or base_layer.skip_bias_add)
+                else self._linear_bias(base_layer, fallback_bias)
+            )
+        return base_layer.quant_method.apply(base_layer, input_, bias), base_layer
+
+    def _preallocate_rollout_marlin_buffers(
+        self, base_layer: nn.Module, input_: torch.Tensor
+    ) -> Optional[
+        Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+    ]:
+        if not self._rollout_flip_twostream:
+            return None
+        output_size = getattr(
+            base_layer,
+            "output_size_per_partition",
+            getattr(base_layer, "output_size", None),
+        )
+        if output_size is None:
+            return None
+        output = torch.empty(
+            (*input_.shape[:-1], int(output_size)),
+            dtype=input_.dtype,
+            device=input_.device,
+        )
+        size_m = int(input_.numel() // input_.shape[-1])
+        sms = torch.cuda.get_device_properties(input_.device).multi_processor_count
+        max_m_block = min(((size_m + 15) // 16) * 16, 64)
+        c_tmp = torch.empty(
+            sms * max_m_block * 256,
+            dtype=torch.float32,
+            device=input_.device,
+        )
+        a_tmp = torch.empty(0, dtype=input_.dtype, device=input_.device)
+        g_idx = getattr(base_layer, "g_idx", None)
+        perm = getattr(base_layer, "g_idx_sort_indices", None)
+        if (
+            isinstance(g_idx, torch.Tensor)
+            and isinstance(perm, torch.Tensor)
+            and g_idx.numel() > 0
+            and perm.numel() > 0
+        ):
+            a_tmp = torch.empty(
+                (size_m, input_.shape[-1]),
+                dtype=input_.dtype,
+                device=input_.device,
+            )
+        empty_dtype = torch.empty(0, dtype=input_.dtype, device=input_.device)
+        empty_int32 = torch.empty(0, dtype=torch.int32, device=input_.device)
+        return output, c_tmp, a_tmp, empty_dtype, empty_int32
+
+    def _base_forward_with_preallocated_marlin(
+        self,
+        base_layer: nn.Module,
+        input_: torch.Tensor,
+        bias,
+        preallocated: Optional[
+            Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+        ],
+    ):
+        kernel = getattr(getattr(base_layer, "scheme", None), "kernel", None)
+        if (
+            preallocated is not None
+            and kernel is not None
+            and kernel.__class__.__name__ == "GPTQMarlinLinearKernel"
+        ):
+            output, c_tmp, a_tmp, empty_dtype, empty_int32 = preallocated
+            return (
+                kernel.apply(
+                    base_layer,
+                    input_,
+                    bias,
+                    output=output,
+                    c_tmp=c_tmp,
+                    a_tmp=a_tmp,
+                    empty_dtype=empty_dtype,
+                    empty_int32=empty_int32,
+                ),
+                base_layer,
+            )
+        return base_layer.quant_method.apply(base_layer, input_, bias), base_layer
+
+    def _rollout_direct_lora_meta(self) -> Optional[Tuple[int, int, float]]:
+        if not self._use_rollout_weight_colocation_int4_base():
+            return None
+
+        batch_info = getattr(self.lora_backend, "batch_info", None)
+        if not getattr(batch_info, "has_active_lora", False):
+            return None
+        if getattr(self.lora_backend, "name", None) != "torch_native":
+            return None
+
+        num_segments = int(getattr(batch_info, "num_segments", 0) or 0)
+        if num_segments != 1:
+            raise RuntimeError(
+                "Rollout weight colocation v0 only supports one active LoRA "
+                "adapter per decode batch for the graph-compatible direct "
+                f"Torch2S path, but got {num_segments} adapter segments."
+            )
+
+        weight_indices_cpu = getattr(batch_info, "weight_indices_cpu", None)
+        lora_ranks_cpu = getattr(batch_info, "lora_ranks_cpu", None)
+        scalings_cpu = getattr(batch_info, "scalings_cpu", None)
+        if (
+            weight_indices_cpu is None
+            or lora_ranks_cpu is None
+            or scalings_cpu is None
+        ):
+            return None
+
+        lora_idx = int(weight_indices_cpu[0])
+        rank = int(lora_ranks_cpu[lora_idx])
+        if rank <= 0:
+            return None
+        scaling = float(scalings_cpu[lora_idx])
+        return lora_idx, rank, scaling
+
+    def _get_rollout_direct_lora_patch(
+        self,
+        *,
+        n_slices: int,
+        rank: int,
+        output_offsets: Tuple[int, ...],
+        scaling: float,
+        A_shape: Tuple[int, ...],
+        B_shape: Tuple[int, ...],
+    ) -> Callable:
+        key = (n_slices, rank, output_offsets, scaling, A_shape, B_shape)
+        patch = self._rollout_direct_lora_patch_cache.get(key)
+        if patch is not None:
+            return patch
+
+        if n_slices == 1:
+
+            def direct_lora_patch(
+                x: torch.Tensor, A: torch.Tensor, B: torch.Tensor
+            ) -> torch.Tensor:
+                lora_output = torch.matmul(
+                    torch.matmul(x, A.transpose(0, 1)),
+                    B.transpose(0, 1),
+                )
+                if scaling != 1.0:
+                    lora_output = lora_output * scaling
+                return lora_output
+
+        else:
+            offsets = output_offsets
+
+            def direct_lora_patch(
+                x: torch.Tensor, A: torch.Tensor, B: torch.Tensor
+            ) -> torch.Tensor:
+                lora_a_output = torch.matmul(x, A.transpose(0, 1))
+                parts = []
+                for slice_idx in range(n_slices):
+                    out_start = offsets[slice_idx]
+                    out_end = offsets[slice_idx + 1]
+                    a_start = slice_idx * rank
+                    a_end = (slice_idx + 1) * rank
+                    parts.append(
+                        torch.matmul(
+                            lora_a_output[:, a_start:a_end],
+                            B[out_start:out_end, :].transpose(0, 1),
+                        )
+                    )
+                lora_output = torch.cat(parts, dim=-1)
+                if scaling != 1.0:
+                    lora_output = lora_output * scaling
+                return lora_output
+
+        patch = torch.compile(direct_lora_patch, fullgraph=False)
+        self._rollout_direct_lora_patch_cache[key] = patch
+        return patch
+
+    def _prepare_rollout_direct_lora(
+        self,
+        A_buffer: torch.Tensor,
+        B_buffer: torch.Tensor,
+        *,
+        n_slices: int = 1,
+        output_offset_cpu: Optional[torch.Tensor] = None,
+    ) -> Optional[Tuple[Callable, torch.Tensor, torch.Tensor]]:
+        meta = self._rollout_direct_lora_meta()
+        if meta is None:
+            return None
+
+        lora_idx, rank, scaling = meta
+        if n_slices == 1:
+            output_offsets = (0, int(B_buffer.shape[-2]))
+        else:
+            if output_offset_cpu is None:
+                raise RuntimeError(
+                    "Rollout direct LoRA needs output offsets for stacked projections."
+                )
+            output_offsets = tuple(
+                int(output_offset_cpu[i]) for i in range(n_slices + 1)
+            )
+
+        A = A_buffer[lora_idx, : n_slices * rank, :]
+        B = B_buffer[lora_idx, : output_offsets[-1], :rank]
+        patch = self._get_rollout_direct_lora_patch(
+            n_slices=n_slices,
+            rank=rank,
+            output_offsets=output_offsets,
+            scaling=scaling,
+            A_shape=tuple(A.shape),
+            B_shape=tuple(B.shape),
+        )
+        return patch, A, B
+
+    def _run_prepared_rollout_direct_lora(
+        self,
+        base_output: Optional[torch.Tensor],
+        x: torch.Tensor,
+        prepared: Tuple[Callable, torch.Tensor, torch.Tensor],
+    ) -> torch.Tensor:
+        patch, A, B = prepared
+        lora_output = patch(x, A, B)
+        if base_output is None:
+            return lora_output
+        return base_output + lora_output
+
+    def _apply_rollout_direct_lora(
+        self,
+        base_output: Optional[torch.Tensor],
+        x: torch.Tensor,
+        A_buffer: torch.Tensor,
+        B_buffer: torch.Tensor,
+        *,
+        n_slices: int = 1,
+        output_offset_cpu: Optional[torch.Tensor] = None,
+    ) -> Optional[torch.Tensor]:
+        prepared = self._prepare_rollout_direct_lora(
+            A_buffer,
+            B_buffer,
+            n_slices=n_slices,
+            output_offset_cpu=output_offset_cpu,
+        )
+        if prepared is None:
+            return None
+        return self._run_prepared_rollout_direct_lora(base_output, x, prepared)
+
+    def _prepare_rollout_direct_lora_for_layer(
+        self,
+    ) -> Optional[Tuple[Callable, torch.Tensor, torch.Tensor]]:
+        return None
 
 
 class VocabParallelEmbeddingWithLoRA(BaseLayerWithLoRA):
@@ -141,6 +544,9 @@ class VocabParallelEmbeddingWithLoRA(BaseLayerWithLoRA):
         self.new_embeddings_buffer = new_embeddings_buffer
         self.embedding_A_buffer = embedding_A_buffer  # (num_loras, rank, vocab_size)
         self.embedding_B_buffer = embedding_B_buffer  # (num_loras, embed_dim, rank)
+        self._preinit_lora_stream_from_tensors(
+            new_embeddings_buffer, embedding_A_buffer, embedding_B_buffer
+        )
 
     def apply_lora(
         self, base_output: torch.Tensor, input_: torch.Tensor, batch_info
@@ -235,7 +641,7 @@ class VocabParallelEmbeddingWithLoRA(BaseLayerWithLoRA):
             base_output = self.extra_token_embedding(input_, base_output)
 
         # Apply LoRA if configured
-        if self.set_lora:
+        if self._apply_lora_this_pass():
             # The backend's run_lora_a_embedding now handles both regular
             # and extra tokens efficiently with CUDA graph support
             base_output = self.apply_lora(base_output, input_, batch_info)
@@ -324,6 +730,7 @@ class ParallelLMHeadWithLoRA(BaseLayerWithLoRA):
         self.set_lora = True
         self.lm_head_A_buffer = lm_head_A_buffer  # (num_loras, rank, hidden_dim)
         self.lm_head_B_buffer = lm_head_B_buffer  # (num_loras, vocab_size, rank)
+        self._preinit_lora_stream_from_tensors(lm_head_A_buffer, lm_head_B_buffer)
 
     def _get_lm_head_batch_info(self, num_tokens: int):
         """Resolve and validate the active lm_head batch_info.
@@ -401,7 +808,7 @@ class ParallelLMHeadWithLoRA(BaseLayerWithLoRA):
         )
 
         # Apply LoRA if set
-        if self.set_lora:
+        if self._apply_lora_this_pass():
             base_output = self.apply_lora(base_output, hidden_states)
 
         return base_output
@@ -471,8 +878,15 @@ class ColumnParallelLinearWithLoRA(BaseLayerWithLoRA):
         self.set_lora = True
         self.A_buffer = A_buffer
         self.B_buffer = B_buffer
+        self._preinit_lora_stream_from_tensors(A_buffer, B_buffer)
 
     def apply_lora(self, base_output: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
+        direct_output = self._apply_rollout_direct_lora(
+            base_output, x, self.A_buffer, self.B_buffer
+        )
+        if direct_output is not None:
+            return direct_output
+
         lora_a_output = self.lora_backend.run_lora_a_sgemm(x, self.A_buffer)
         lora_output = self.lora_backend.run_lora_b_sgemm(
             x=lora_a_output,
@@ -483,34 +897,86 @@ class ColumnParallelLinearWithLoRA(BaseLayerWithLoRA):
         )
         return lora_output
 
+    def _prepare_rollout_direct_lora_for_layer(
+        self,
+    ) -> Optional[Tuple[Callable, torch.Tensor, torch.Tensor]]:
+        return self._prepare_rollout_direct_lora(self.A_buffer, self.B_buffer)
+
     def forward(self, input_: torch.Tensor):
         # duplicate the logic in ColumnParallelLinear
         bias = self.base_layer.bias if not self.base_layer.skip_bias_add else None
         lora_output = None
-
-        if self.set_lora and self._use_torch_twostream_lora(input_):
-            current_stream = torch.cuda.current_stream(input_.device)
-            lora_stream = self._get_lora_stream(input_.device)
-            lora_stream.wait_stream(current_stream)
-            with torch.cuda.stream(lora_stream):
-                lora_output = self.apply_lora(None, input_)
-
-        output_parallel = self.base_layer.quant_method.apply(
-            self.base_layer, input_, bias
+        prepared_rollout_lora = None
+        two_stream = self._apply_lora_this_pass() and self._use_torch_twostream_lora(
+            input_
         )
 
-        if self._apply_lora_this_pass():
-            if lora_output is None:
-                output_parallel = self.apply_lora(output_parallel, input_)
+        if two_stream and self._rollout_flip_twostream:
+            # FLIPPED: Marlin base on the side stream, LoRA patch on the main stream.
+            prepared_rollout_lora = self._prepare_rollout_direct_lora_for_layer()
+            current_stream = torch.cuda.current_stream(input_.device)
+            base_stream = self._get_lora_stream(input_.device)
+            selected_base_layer = self._selected_base_layer()
+            selected_bias = (
+                None
+                if selected_base_layer.skip_bias_add
+                else self._linear_bias(selected_base_layer, bias)
+            )
+            preallocated = self._preallocate_rollout_marlin_buffers(
+                selected_base_layer, input_
+            )
+            base_stream.wait_stream(current_stream)
+            with torch.cuda.stream(base_stream):
+                output_parallel, selected_base_layer = (
+                    self._base_forward_with_preallocated_marlin(
+                        selected_base_layer,
+                        input_,
+                        selected_bias,
+                        preallocated,
+                    )
+                )
+            if prepared_rollout_lora is None:
+                lora_output = self.apply_lora(None, input_)
             else:
-                torch.cuda.current_stream(input_.device).wait_stream(lora_stream)
-                output_parallel = output_parallel + lora_output
+                lora_output = self._run_prepared_rollout_direct_lora(
+                    None, input_, prepared_rollout_lora
+                )
+            current_stream.wait_stream(base_stream)
+            output_parallel = output_parallel + lora_output
+        else:
+            if two_stream:
+                prepared_rollout_lora = self._prepare_rollout_direct_lora_for_layer()
+                current_stream = torch.cuda.current_stream(input_.device)
+                lora_stream = self._get_lora_stream(input_.device)
+                lora_stream.wait_stream(current_stream)
+                with torch.cuda.stream(lora_stream):
+                    if prepared_rollout_lora is None:
+                        lora_output = self.apply_lora(None, input_)
+                    else:
+                        lora_output = self._run_prepared_rollout_direct_lora(
+                            None, input_, prepared_rollout_lora
+                        )
 
-        if self.base_layer.gather_output:
+            output_parallel, selected_base_layer = self._column_base_forward(
+                input_, fallback_bias=bias
+            )
+
+            if self._apply_lora_this_pass():
+                if lora_output is None:
+                    output_parallel = self.apply_lora(output_parallel, input_)
+                else:
+                    torch.cuda.current_stream(input_.device).wait_stream(lora_stream)
+                    output_parallel = output_parallel + lora_output
+
+        if selected_base_layer.gather_output:
             output = tensor_model_parallel_all_gather(output_parallel)
         else:
             output = output_parallel
-        output_bias = self.base_layer.bias if self.base_layer.skip_bias_add else None
+        output_bias = (
+            self._linear_bias(selected_base_layer, self.base_layer.bias)
+            if selected_base_layer.skip_bias_add
+            else None
+        )
         return output, output_bias
 
     def slice_lora_a_weights(self, A: torch.Tensor, tp_rank: int):
@@ -541,6 +1007,7 @@ class MergedColumnParallelLinearWithLoRA(ColumnParallelLinearWithLoRA):
         self.set_lora = True
         self.A_buffer = A_buffer
         self.B_buffer = B_buffer
+        self._preinit_lora_stream_from_tensors(A_buffer, B_buffer)
 
         # Build cumulative output offsets from the first `lora_n_slices`
         # base partitions. `lora_n_slices` may be smaller than self.n_slices
@@ -587,6 +1054,17 @@ class MergedColumnParallelLinearWithLoRA(ColumnParallelLinearWithLoRA):
 
     def apply_lora(self, base_output: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
         lora_n_slices = self._get_lora_n_slices()
+        direct_output = self._apply_rollout_direct_lora(
+            base_output,
+            x,
+            self.A_buffer,
+            self.B_buffer,
+            n_slices=lora_n_slices,
+            output_offset_cpu=self.output_offset_cpu,
+        )
+        if direct_output is not None:
+            return direct_output
+
         if lora_n_slices == 2 and self.use_gate_up_lora:
             lora_output = self.lora_backend.run_gate_up_lora(
                 x=x,
@@ -608,6 +1086,17 @@ class MergedColumnParallelLinearWithLoRA(ColumnParallelLinearWithLoRA):
                 n_slices=lora_n_slices,
             )
         return lora_output
+
+    def _prepare_rollout_direct_lora_for_layer(
+        self,
+    ) -> Optional[Tuple[Callable, torch.Tensor, torch.Tensor]]:
+        lora_n_slices = self._get_lora_n_slices()
+        return self._prepare_rollout_direct_lora(
+            self.A_buffer,
+            self.B_buffer,
+            n_slices=lora_n_slices,
+            output_offset_cpu=self.output_offset_cpu,
+        )
 
     def slice_lora_a_weights(self, A: torch.Tensor, tp_rank: int):
         return A
@@ -663,8 +1152,20 @@ class QKVParallelLinearWithLoRA(ColumnParallelLinearWithLoRA):
         self.set_lora = True
         self.A_buffer_qkv = A_buffer_qkv
         self.B_buffer_qkv = B_buffer_qkv
+        self._preinit_lora_stream_from_tensors(A_buffer_qkv, B_buffer_qkv)
 
     def apply_lora(self, base_output: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
+        direct_output = self._apply_rollout_direct_lora(
+            base_output,
+            x,
+            self.A_buffer_qkv,
+            self.B_buffer_qkv,
+            n_slices=3,
+            output_offset_cpu=self.output_offset_cpu,
+        )
+        if direct_output is not None:
+            return direct_output
+
         lora_output = self.lora_backend.run_qkv_lora(
             x=x,
             qkv_lora_a=self.A_buffer_qkv,
@@ -676,6 +1177,16 @@ class QKVParallelLinearWithLoRA(ColumnParallelLinearWithLoRA):
         )
 
         return lora_output
+
+    def _prepare_rollout_direct_lora_for_layer(
+        self,
+    ) -> Optional[Tuple[Callable, torch.Tensor, torch.Tensor]]:
+        return self._prepare_rollout_direct_lora(
+            self.A_buffer_qkv,
+            self.B_buffer_qkv,
+            n_slices=3,
+            output_offset_cpu=self.output_offset_cpu,
+        )
 
     def slice_lora_a_weights(self, A: torch.Tensor, tp_rank: int):
         return A
@@ -721,6 +1232,7 @@ class RowParallelLinearWithLoRA(BaseLayerWithLoRA):
         self.set_lora = True
         self.A_buffer = A_buffer
         self.B_buffer = B_buffer
+        self._preinit_lora_stream_from_tensors(A_buffer, B_buffer)
         output_size = self.base_layer.output_size
         offsets = [0, output_size]
         self.output_offset = torch.tensor(
@@ -736,6 +1248,12 @@ class RowParallelLinearWithLoRA(BaseLayerWithLoRA):
         )
 
     def apply_lora(self, base_output: torch.Tensor, x: torch.Tensor) -> torch.Tensor:
+        direct_output = self._apply_rollout_direct_lora(
+            base_output, x, self.A_buffer, self.B_buffer
+        )
+        if direct_output is not None:
+            return direct_output
+
         lora_a_output = self.lora_backend.run_lora_a_sgemm(x, self.A_buffer)
         lora_output = self.lora_backend.run_lora_b_sgemm(
             x=lora_a_output,
@@ -745,6 +1263,11 @@ class RowParallelLinearWithLoRA(BaseLayerWithLoRA):
             base_output=base_output,
         )
         return lora_output
+
+    def _prepare_rollout_direct_lora_for_layer(
+        self,
+    ) -> Optional[Tuple[Callable, torch.Tensor, torch.Tensor]]:
+        return self._prepare_rollout_direct_lora(self.A_buffer, self.B_buffer)
 
     def forward(self, input_: torch.Tensor, skip_all_reduce=False, forward_batch=None):
         if self.base_layer.input_is_parallel:
@@ -762,6 +1285,7 @@ class RowParallelLinearWithLoRA(BaseLayerWithLoRA):
             else self.base_layer.bias
         )
         lora_output_parallel = None
+        prepared_rollout_lora = None
 
         should_reduce = (
             self.base_layer.reduce_results
@@ -769,19 +1293,73 @@ class RowParallelLinearWithLoRA(BaseLayerWithLoRA):
             and not skip_all_reduce
         )
 
-        if (
-            self.set_lora
+        two_stream = (
+            self._apply_lora_this_pass()
             and not should_reduce
             and self._use_torch_twostream_lora(input_parallel)
-        ):
+        )
+
+        if two_stream and self._rollout_flip_twostream:
+            # FLIPPED: Marlin base on the side stream, LoRA patch on the main stream.
+            prepared_rollout_lora = self._prepare_rollout_direct_lora_for_layer()
+            current_stream = torch.cuda.current_stream(input_parallel.device)
+            base_stream = self._get_lora_stream(input_parallel.device)
+            selected_base_layer = self._selected_base_layer()
+            selected_bias = (
+                bias_
+                if selected_base_layer is self.base_layer
+                else (
+                    None
+                    if (
+                        selected_base_layer.tp_rank > 0
+                        or selected_base_layer.skip_bias_add
+                    )
+                    else self._linear_bias(selected_base_layer, self.base_layer.bias)
+                )
+            )
+            preallocated = self._preallocate_rollout_marlin_buffers(
+                selected_base_layer, input_parallel
+            )
+            base_stream.wait_stream(current_stream)
+            with torch.cuda.stream(base_stream):
+                output_parallel, selected_base_layer = (
+                    self._base_forward_with_preallocated_marlin(
+                        selected_base_layer,
+                        input_parallel,
+                        selected_bias,
+                        preallocated,
+                    )
+                )
+            if prepared_rollout_lora is None:
+                lora_output_parallel = self.apply_lora(None, input_parallel)
+            else:
+                lora_output_parallel = self._run_prepared_rollout_direct_lora(
+                    None, input_parallel, prepared_rollout_lora
+                )
+            current_stream.wait_stream(base_stream)
+            output_ = output_parallel + lora_output_parallel
+            output_bias = (
+                self._linear_bias(selected_base_layer, self.base_layer.bias)
+                if selected_base_layer.skip_bias_add
+                else None
+            )
+            return output_, output_bias
+
+        if two_stream:
+            prepared_rollout_lora = self._prepare_rollout_direct_lora_for_layer()
             current_stream = torch.cuda.current_stream(input_parallel.device)
             lora_stream = self._get_lora_stream(input_parallel.device)
             lora_stream.wait_stream(current_stream)
             with torch.cuda.stream(lora_stream):
-                lora_output_parallel = self.apply_lora(None, input_parallel)
+                if prepared_rollout_lora is None:
+                    lora_output_parallel = self.apply_lora(None, input_parallel)
+                else:
+                    lora_output_parallel = self._run_prepared_rollout_direct_lora(
+                        None, input_parallel, prepared_rollout_lora
+                    )
 
-        output_parallel = self.base_layer.quant_method.apply(
-            self.base_layer, input_parallel, bias=bias_
+        output_parallel, selected_base_layer = self._row_base_forward(
+            input_parallel, bias_, fallback_bias=self.base_layer.bias
         )
 
         if self._apply_lora_this_pass() and should_reduce:
@@ -811,7 +1389,11 @@ class RowParallelLinearWithLoRA(BaseLayerWithLoRA):
             else:
                 output_ = output_parallel
 
-        output_bias = self.base_layer.bias if self.base_layer.skip_bias_add else None
+        output_bias = (
+            self._linear_bias(selected_base_layer, self.base_layer.bias)
+            if selected_base_layer.skip_bias_add
+            else None
+        )
         return output_, output_bias
 
     def slice_lora_a_weights(self, A: torch.Tensor, tp_rank: int):
@@ -852,6 +1434,7 @@ class ReplicatedLinearWithLoRA(BaseLayerWithLoRA):
         self.set_lora = True
         self.A_buffer = A_buffer
         self.B_buffer = B_buffer
+        self._preinit_lora_stream_from_tensors(A_buffer, B_buffer)
         first_dim = self.first_output_dim
         if first_dim > 0:
             second_dim = B_buffer.shape[-2] - first_dim
@@ -875,6 +1458,12 @@ class ReplicatedLinearWithLoRA(BaseLayerWithLoRA):
         first_dim = self.first_output_dim
 
         if first_dim == 0:
+            direct_output = self._apply_rollout_direct_lora(
+                base_output, x, self.A_buffer, self.B_buffer
+            )
+            if direct_output is not None:
+                return direct_output
+
             # Simple single-projection (e.g. fc1_latent_proj, fc2_latent_proj)
             lora_a_output = self.lora_backend.run_lora_a_sgemm(x, self.A_buffer)
             lora_output = self.lora_backend.run_lora_b_sgemm(
@@ -884,6 +1473,17 @@ class ReplicatedLinearWithLoRA(BaseLayerWithLoRA):
                 base_output=base_output,
             )
             return lora_output
+
+        direct_output = self._apply_rollout_direct_lora(
+            base_output,
+            x,
+            self.A_buffer,
+            self.B_buffer,
+            n_slices=2,
+            output_offset_cpu=self._output_offset_cpu,
+        )
+        if direct_output is not None:
+            return direct_output
 
         # Use the fused N-component kernel with n_slices=2 to handle the
         # split inside the triton kernel, avoiding Python-level splitting
@@ -902,10 +1502,20 @@ class ReplicatedLinearWithLoRA(BaseLayerWithLoRA):
 
     def forward(self, x: torch.Tensor):
         bias = self.base_layer.bias if not self.base_layer.skip_bias_add else None
-        output = self.base_layer.quant_method.apply(self.base_layer, x, bias)
-        if self.set_lora:
+        base_layer = self._selected_base_layer()
+        selected_bias = (
+            None
+            if base_layer.skip_bias_add
+            else self._linear_bias(base_layer, fallback=bias)
+        )
+        output = base_layer.quant_method.apply(base_layer, x, selected_bias)
+        if self._apply_lora_this_pass():
             output = self.apply_lora(output, x)
-        output_bias = self.base_layer.bias if self.base_layer.skip_bias_add else None
+        output_bias = (
+            self._linear_bias(base_layer, self.base_layer.bias)
+            if base_layer.skip_bias_add
+            else None
+        )
         return output, output_bias
 
     def slice_lora_a_weights(self, A: torch.Tensor, tp_rank: int):
@@ -1006,6 +1616,12 @@ class FusedMoEWithLoRA(BaseLayerWithLoRA):
         self.gate_up_lora_b_weights = gate_up_lora_b_weights
         self.down_lora_a_weights = down_lora_a_weights
         self.down_lora_b_weights = down_lora_b_weights
+        self._preinit_lora_stream_from_tensors(
+            gate_up_lora_a_weights,
+            gate_up_lora_b_weights,
+            down_lora_a_weights,
+            down_lora_b_weights,
+        )
 
     def _get_lora_info(self):
         """Build LoRAInfo for the current batch."""

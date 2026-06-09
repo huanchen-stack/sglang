@@ -6,6 +6,7 @@ import torch
 
 from sglang.jit_kernel.utils import cache_once, load_jit, make_cpp_args
 from sglang.kernel_api_logging import debug_kernel_api
+from sglang.srt.utils.custom_op import register_custom_op
 
 if TYPE_CHECKING:
     from sgl_kernel.scalar_type import ScalarType
@@ -51,6 +52,8 @@ def gptq_marlin_gemm(
     use_atomic_add: bool = False,
     use_fp32_reduce: bool = False,
     is_zp_float: bool = False,
+    c_tmp_buffer: Optional[torch.Tensor] = None,
+    a_tmp_buffer: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
     device = a.device
 
@@ -72,19 +75,25 @@ def gptq_marlin_gemm(
 
     # Allocate c_tmp for fp32 reduce
     if use_fp32_reduce:
-        sms = torch.cuda.get_device_properties(device).multi_processor_count
-        max_m_block = min(((size_m + 15) // 16) * 16, 64)
-        c_tmp = torch.empty(
-            sms * max_m_block * _MAX_THREAD_N,
-            dtype=torch.float32,
-            device=device,
-        )
+        if c_tmp_buffer is None:
+            sms = torch.cuda.get_device_properties(device).multi_processor_count
+            max_m_block = min(((size_m + 15) // 16) * 16, 64)
+            c_tmp = torch.empty(
+                sms * max_m_block * _MAX_THREAD_N,
+                dtype=torch.float32,
+                device=device,
+            )
+        else:
+            c_tmp = c_tmp_buffer
     else:
         c_tmp = torch.empty(0, dtype=torch.float32, device=device)
 
     # Allocate a_tmp for act_order column permutation
     if has_act_order:
-        a_tmp = torch.empty((size_m, size_k), dtype=a.dtype, device=device)
+        if a_tmp_buffer is None:
+            a_tmp = torch.empty((size_m, size_k), dtype=a.dtype, device=device)
+        else:
+            a_tmp = a_tmp_buffer
     else:
         a_tmp = torch.empty(0, dtype=a.dtype, device=device)
 
@@ -114,4 +123,106 @@ def gptq_marlin_gemm(
         is_zp_float,
     )
 
+    return c
+
+
+@register_custom_op(mutates_args=["c", "c_tmp", "a_tmp"])
+def _gptq_marlin_gemm_preallocated_inplace(
+    a: torch.Tensor,
+    c: torch.Tensor,
+    c_tmp: torch.Tensor,
+    a_tmp: torch.Tensor,
+    empty_dtype: torch.Tensor,
+    empty_int32: torch.Tensor,
+    b_q_weight: torch.Tensor,
+    b_scales: torch.Tensor,
+    global_scale: Optional[torch.Tensor],
+    b_zeros: Optional[torch.Tensor],
+    g_idx: Optional[torch.Tensor],
+    perm: Optional[torch.Tensor],
+    workspace: torch.Tensor,
+    b_q_type_id: int,
+    size_m: int,
+    size_n: int,
+    size_k: int,
+    is_k_full: bool = True,
+    use_atomic_add: bool = False,
+    use_fp32_reduce: bool = False,
+    is_zp_float: bool = False,
+) -> None:
+    if size_m == 0:
+        return None
+
+    global_scale_t = global_scale if global_scale is not None else empty_dtype
+    b_zeros_t = b_zeros if b_zeros is not None else empty_int32
+    g_idx_t = g_idx if g_idx is not None else empty_int32
+    perm_t = perm if perm is not None else empty_int32
+
+    module = _jit_gptq_marlin_module(a.dtype)
+    module.gptq_marlin_gemm(
+        a,
+        b_q_weight,
+        b_scales,
+        global_scale_t,
+        b_zeros_t,
+        g_idx_t,
+        perm_t,
+        c,
+        c_tmp,
+        a_tmp,
+        workspace,
+        b_q_type_id,
+        is_k_full,
+        use_atomic_add,
+        use_fp32_reduce,
+        is_zp_float,
+    )
+
+
+def gptq_marlin_gemm_preallocated(
+    a: torch.Tensor,
+    c: torch.Tensor,
+    c_tmp: torch.Tensor,
+    a_tmp: torch.Tensor,
+    empty_dtype: torch.Tensor,
+    empty_int32: torch.Tensor,
+    b_q_weight: torch.Tensor,
+    b_scales: torch.Tensor,
+    global_scale: Optional[torch.Tensor],
+    b_zeros: Optional[torch.Tensor],
+    g_idx: Optional[torch.Tensor],
+    perm: Optional[torch.Tensor],
+    workspace: torch.Tensor,
+    b_q_type: ScalarType,
+    size_m: int,
+    size_n: int,
+    size_k: int,
+    is_k_full: bool = True,
+    use_atomic_add: bool = False,
+    use_fp32_reduce: bool = False,
+    is_zp_float: bool = False,
+) -> torch.Tensor:
+    _gptq_marlin_gemm_preallocated_inplace(
+        a,
+        c,
+        c_tmp,
+        a_tmp,
+        empty_dtype,
+        empty_int32,
+        b_q_weight,
+        b_scales,
+        global_scale,
+        b_zeros,
+        g_idx,
+        perm,
+        workspace,
+        b_q_type.id,
+        size_m,
+        size_n,
+        size_k,
+        is_k_full,
+        use_atomic_add,
+        use_fp32_reduce,
+        is_zp_float,
+    )
     return c

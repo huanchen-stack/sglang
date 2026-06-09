@@ -549,6 +549,11 @@ class ServerArgs:
     lora_use_virtual_experts: bool = False
     lora_strict_loading: bool = False
     lora_drain_wait_threshold: float = 0.0
+    rollout_weight_colocation_int4_model_path: Optional[str] = None
+    rollout_weight_colocation_int4_load_format: Optional[str] = None
+    rollout_weight_colocation_int4_quantization: Optional[str] = None
+    rollout_weight_colocation_precision_policy_path: Optional[str] = None
+    rollout_weight_colocation_force_torch2s: bool = True
 
     # Kernel backend
     attention_backend: Optional[str] = None
@@ -5438,6 +5443,38 @@ class ServerArgs:
             default=ServerArgs.lora_drain_wait_threshold,
             help="When any LoRA adapter request waits longer than this threshold (in seconds), the scheduler will selectively drain one running adapter to make room. This mitigates extreme tail latency under high or skewed workloads by preventing a small set of adapters from monopolizing batch slots. Set to 0 to disable draining (default).",
         )
+        parser.add_argument(
+            "--rollout-weight-colocation-int4-model-path",
+            type=str,
+            default=ServerArgs.rollout_weight_colocation_int4_model_path,
+            help="Optional path to an INT4 shadow model kept resident beside the primary BF16 model. In v0, prefill uses the primary BF16 weights and decode uses the INT4 shadow base with Torch-native two-stream LoRA.",
+        )
+        parser.add_argument(
+            "--rollout-weight-colocation-int4-load-format",
+            type=str,
+            default=ServerArgs.rollout_weight_colocation_int4_load_format,
+            choices=LOAD_FORMAT_CHOICES,
+            help="Optional load-format override for --rollout-weight-colocation-int4-model-path. Defaults to the main --load-format.",
+        )
+        parser.add_argument(
+            "--rollout-weight-colocation-int4-quantization",
+            type=str,
+            default=ServerArgs.rollout_weight_colocation_int4_quantization,
+            help="Optional quantization override for the INT4 shadow model. If unset, SGLang auto-detects quantization from the shadow checkpoint config.",
+        )
+        parser.add_argument(
+            "--rollout-weight-colocation-precision-policy-path",
+            type=str,
+            default=ServerArgs.rollout_weight_colocation_precision_policy_path,
+            help="Optional JSON policy mapping CUDA graph batch sizes to decode projection precisions for qkv/o/up/down. If unset, rollout decode uses INT4+Torch2S for all rollout projections.",
+        )
+        parser.add_argument(
+            "--no-rollout-weight-colocation-force-torch2s",
+            dest="rollout_weight_colocation_force_torch2s",
+            action="store_false",
+            default=ServerArgs.rollout_weight_colocation_force_torch2s,
+            help="Do not automatically switch LoRA to torch_native and enable SGLANG_LORA_TORCH_TWOSTREAM when rollout weight colocation is enabled.",
+        )
 
         # Kernel backend
         parser.add_argument(
@@ -7290,6 +7327,33 @@ class ServerArgs:
 
     def check_lora_server_args(self):
         assert self.max_loras_per_batch > 0, "max_loras_per_batch must be positive"
+
+        if self.rollout_weight_colocation_int4_model_path:
+            if not self.lora_paths:
+                raise ValueError(
+                    "Rollout weight colocation v0 requires at least one startup "
+                    "--lora-paths entry. CUDA graph capture must see a real "
+                    "Torch2S LoRA adapter topology."
+                )
+            if self.enable_lora is None:
+                self.enable_lora = True
+                logger.warning(
+                    "--enable-lora is set to True because rollout weight "
+                    "colocation is enabled."
+                )
+            if (
+                self.rollout_weight_colocation_force_torch2s
+                and self.lora_backend != "torch_native"
+            ):
+                logger.warning(
+                    "Using torch_native LoRA backend for rollout weight "
+                    "colocation. Pass "
+                    "--no-rollout-weight-colocation-force-torch2s to keep the "
+                    "configured backend."
+                )
+                self.lora_backend = "torch_native"
+            if self.rollout_weight_colocation_force_torch2s:
+                os.environ.setdefault("SGLANG_LORA_TORCH_TWOSTREAM", "1")
 
         # Enable LoRA if any LoRA paths are provided for backward compatibility.
         if self.lora_paths:

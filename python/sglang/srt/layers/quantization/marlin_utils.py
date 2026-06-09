@@ -44,7 +44,10 @@ except ImportError:
 _is_cuda = is_cuda()
 
 if _is_cuda:
-    from sglang.jit_kernel.gptq_marlin import gptq_marlin_gemm
+    from sglang.jit_kernel.gptq_marlin import (
+        gptq_marlin_gemm,
+        gptq_marlin_gemm_preallocated,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -476,9 +479,17 @@ def apply_gptq_marlin_linear(
     is_k_full: bool,
     bias: Optional[torch.Tensor] = None,
     use_fp32_reduce: bool = USE_FP32_REDUCE_DEFAULT,
+    output: Optional[torch.Tensor] = None,
+    c_tmp: Optional[torch.Tensor] = None,
+    a_tmp: Optional[torch.Tensor] = None,
+    empty_dtype: Optional[torch.Tensor] = None,
+    empty_int32: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
     reshaped_x = input.reshape(-1, input.shape[-1])
     out_shape = input.shape[:-1] + (output_size_per_partition,)
+    reshaped_output = None
+    if output is not None:
+        reshaped_output = output.reshape(-1, output_size_per_partition)
 
     use_atomic_add = should_use_atomic_add_reduce(
         m=reshaped_x.size(0),
@@ -489,10 +500,18 @@ def apply_gptq_marlin_linear(
     )
 
     forward_context = get_forward_context()
-    if forward_context is None:
-        output = gptq_marlin_gemm(
+    if output is not None:
+        assert c_tmp is not None
+        assert a_tmp is not None
+        assert empty_dtype is not None
+        assert empty_int32 is not None
+        output = gptq_marlin_gemm_preallocated(
             reshaped_x,
-            None,
+            reshaped_output,
+            c_tmp,
+            a_tmp,
+            empty_dtype,
+            empty_int32,
             weight,
             weight_scale,
             None,
@@ -508,6 +527,28 @@ def apply_gptq_marlin_linear(
             use_atomic_add=use_atomic_add,
             use_fp32_reduce=use_fp32_reduce,
             is_zp_float=False,
+        )
+    elif forward_context is None:
+        output = gptq_marlin_gemm(
+            reshaped_x,
+            reshaped_output,
+            weight,
+            weight_scale,
+            None,
+            weight_zp,
+            g_idx,
+            g_idx_sort_indices,
+            workspace,
+            wtype,
+            size_m=reshaped_x.shape[0],
+            size_n=output_size_per_partition,
+            size_k=input_size_per_partition,
+            is_k_full=is_k_full,
+            use_atomic_add=use_atomic_add,
+            use_fp32_reduce=use_fp32_reduce,
+            is_zp_float=False,
+            c_tmp_buffer=c_tmp,
+            a_tmp_buffer=a_tmp,
         )
     else:
         output = unified_apply_gptq_marlin_gemm_with_wtype(

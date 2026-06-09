@@ -231,6 +231,11 @@ class GPTQMarlinLinearKernel:
         layer: torch.nn.Module,
         x: torch.Tensor,
         bias: Optional[torch.Tensor] = None,
+        output: Optional[torch.Tensor] = None,
+        c_tmp: Optional[torch.Tensor] = None,
+        a_tmp: Optional[torch.Tensor] = None,
+        empty_dtype: Optional[torch.Tensor] = None,
+        empty_int32: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         c = self.kernel_config
 
@@ -266,6 +271,11 @@ class GPTQMarlinLinearKernel:
             output_size_per_partition=c.partition_weight_shape[1],
             is_k_full=self.is_k_full,
             bias=bias,
+            output=output,
+            c_tmp=c_tmp,
+            a_tmp=a_tmp,
+            empty_dtype=empty_dtype,
+            empty_int32=empty_int32,
         )
 
 

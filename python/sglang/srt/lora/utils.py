@@ -68,6 +68,11 @@ class LoRABatchInfo:
     # two-stream LoRA path is decode-only; prefill keeps the base path.
     is_decode: bool = False
 
+    # CPU-side flag: True while CUDA graph capture is building a decode graph.
+    # Some experimental paths must capture the same topology that replay will
+    # use even when capture uses synthetic request metadata.
+    is_cuda_graph_capture: bool = False
+
     # Per-request segment indptrs, shape (bs + 1,). Required by MoE virtual
     # experts which map tokens to requests regardless of the dense-LoRA
     # backend's internal segmentation.  For the triton backend these are
