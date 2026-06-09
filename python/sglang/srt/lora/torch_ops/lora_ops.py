@@ -1,6 +1,25 @@
+import os
+from contextlib import contextmanager
 from typing import Optional
 
 import torch
+
+
+_ENABLE_LORA_NVTX = (
+    os.environ.get("SGLANG_LORA_NVTX", "0").lower() in ("1", "true", "yes", "on")
+)
+
+
+@contextmanager
+def _nvtx_range(label: str):
+    if _ENABLE_LORA_NVTX:
+        torch.cuda.nvtx.range_push(label)
+        try:
+            yield
+        finally:
+            torch.cuda.nvtx.range_pop()
+    else:
+        yield
 
 
 def sgemm_lora_a_embedding_fwd(
@@ -70,13 +89,12 @@ def sgemm_lora_a_fwd(
 
         rank = lora_ranks[lora_idx]
         if rank > 0:
-
             x_seq = inputs[token_offset : token_offset + seq_len]
             w_seq = weights[lora_idx, : num_slices * rank]
-
-            output[token_offset : token_offset + seq_len, : num_slices * rank] = (
-                torch.mm(x_seq, w_seq.T) * scaling_tensor[lora_idx]
-            )
+            with _nvtx_range("lora_a_mm"):
+                output[token_offset : token_offset + seq_len, : num_slices * rank] = (
+                    torch.mm(x_seq, w_seq.T) * scaling_tensor[lora_idx]
+                )
 
         token_offset += seq_len
 
@@ -117,7 +135,6 @@ def sgemm_lora_b_fwd(
 
         rank = lora_ranks[lora_idx]
         if rank > 0:
-
             for slice_idx in range(num_slices):
                 slice_start_input = slice_idx * rank
                 slice_end_input = (slice_idx + 1) * rank
@@ -133,10 +150,11 @@ def sgemm_lora_b_fwd(
                     lora_idx, slice_start_output:slice_end_output, :rank
                 ]  # (slice_dim, rank)
 
-                output[
-                    token_offset : token_offset + seq_len,
-                    slice_start_output:slice_end_output,
-                ].addmm_(x_slice, w_slice.T)
+                with _nvtx_range("lora_b_addmm"):
+                    output[
+                        token_offset : token_offset + seq_len,
+                        slice_start_output:slice_end_output,
+                    ].addmm_(x_slice, w_slice.T)
 
         token_offset += seq_len
 
