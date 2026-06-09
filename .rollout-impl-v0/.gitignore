@@ -1,0 +1,14 @@
+__pycache__/
+
+# Generated result payloads and logs. Keep only scripts/docs/policies and PNG deliverables.
+decoding-throughput/results/*/*.json
+decoding-throughput/results/*/*.csv
+decoding-throughput/previous-script-rerun/
+precision-mixing/results/
+weight-loading/results/
+lora-tp/serving/
+lora-tp/nsys/*.json
+lora-tp/nsys/*.nsys-rep
+lora-tp/nsys/*.sqlite
+lora-tp/nsys/*_cuda_gpu_kern_sum.csv
+lora-tp/nsys/*_summary.json

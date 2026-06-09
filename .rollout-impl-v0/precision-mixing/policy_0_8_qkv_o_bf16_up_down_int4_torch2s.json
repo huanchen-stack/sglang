@@ -1,0 +1,8 @@
+{
+  "0-8": {
+    "qkv": "bf16",
+    "o": "bf16",
+    "up": "int4+torch2s",
+    "down": "int4+torch2s"
+  }
+}
