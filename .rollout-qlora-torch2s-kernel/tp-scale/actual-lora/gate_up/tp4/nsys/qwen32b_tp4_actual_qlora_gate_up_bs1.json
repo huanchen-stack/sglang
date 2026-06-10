@@ -1,0 +1,20 @@
+{
+  "tp": 4,
+  "rank": 0,
+  "local_rank": 0,
+  "projection": "gate_up_proj",
+  "tokens": 1,
+  "hidden_size": 5120,
+  "intermediate_size": 27648,
+  "gate_up_local_output_features": 13824,
+  "median_us": 99.18399900197983,
+  "min_us": 62.84800171852112,
+  "max_us": 115.35999923944473,
+  "warmup": 5,
+  "iters": 10,
+  "cuda_graph": true,
+  "torch_compile_direct_lora": true,
+  "l2_flush_mib": 96,
+  "two_stream_layout": "flipped-staged-column",
+  "two_stream_reserve_sms": 1
+}

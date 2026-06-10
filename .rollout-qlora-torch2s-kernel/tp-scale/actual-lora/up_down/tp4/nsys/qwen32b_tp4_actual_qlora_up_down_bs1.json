@@ -1,0 +1,22 @@
+{
+  "tp": 4,
+  "rank": 0,
+  "local_rank": 0,
+  "layer": "up_down",
+  "tokens": 1,
+  "hidden_size": 5120,
+  "intermediate_size": 27648,
+  "gate_up_local_output_features": 13824,
+  "down_local_input_features": 6912,
+  "median_us": 202.56000012159348,
+  "min_us": 179.03999984264374,
+  "max_us": 273.44000339508057,
+  "warmup": 5,
+  "iters": 10,
+  "cuda_graph": true,
+  "torch_compile_direct_lora": true,
+  "l2_flush_mib": 96,
+  "two_stream_layout": "actual-flipped-column-staged",
+  "two_stream_reserve_sms": 1,
+  "forced_nccl_all_reduce": true
+}

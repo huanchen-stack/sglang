@@ -1,0 +1,44 @@
+{
+  "model": "qwen2.5-32b-tp4-local",
+  "base_model": "qwen2.5-32b",
+  "tp_size": 4,
+  "layers": 64,
+  "hidden_size": 5120,
+  "kv_out": 1024,
+  "intermediate_size": 27648,
+  "lora_rank": 16,
+  "lora_alpha": 16.0,
+  "dtype": "bf16",
+  "quant_type": "uint4b8",
+  "group_size": 128,
+  "projections": [
+    {
+      "name": "qkv",
+      "kind": "qkv",
+      "in_features": 5120,
+      "out_features": 1792,
+      "slice_sizes": [1280, 256, 256]
+    },
+    {
+      "name": "o",
+      "kind": "simple",
+      "in_features": 1280,
+      "out_features": 5120,
+      "slice_sizes": [5120]
+    },
+    {
+      "name": "gate_up",
+      "kind": "gate_up",
+      "in_features": 5120,
+      "out_features": 13824,
+      "slice_sizes": [6912, 6912]
+    },
+    {
+      "name": "down",
+      "kind": "simple",
+      "in_features": 6912,
+      "out_features": 5120,
+      "slice_sizes": [5120]
+    }
+  ]
+}
