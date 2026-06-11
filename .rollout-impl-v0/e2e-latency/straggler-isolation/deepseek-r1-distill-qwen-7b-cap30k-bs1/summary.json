@@ -1,0 +1,68 @@
+{
+  "settings": {
+    "max_new_tokens": 30000,
+    "temperature": 0.9,
+    "top_p": 0.95,
+    "top_k": 20,
+    "batch_size": 1,
+    "context_length": 35000
+  },
+  "requests": {
+    "dataset438_req41": {
+      "bf16": {
+        "dataset_index": 438,
+        "output_len": 16334,
+        "finish_reason": {
+          "type": "stop",
+          "matched": 151643
+        },
+        "success": true,
+        "request_latency_s": 100.02593352459371,
+        "ttft_s": 0.9343779305927455,
+        "drain_s": 99.0910178902559,
+        "decode_output_tok_s": 164.83835112169336
+      },
+      "dynamic": {
+        "dataset_index": 438,
+        "output_len": 15744,
+        "finish_reason": {
+          "type": "stop",
+          "matched": 151643
+        },
+        "success": true,
+        "request_latency_s": 100.6615658449009,
+        "ttft_s": 0.4649860537610948,
+        "drain_s": 100.19626843417063,
+        "decode_output_tok_s": 157.13160026856562
+      }
+    },
+    "dataset89_req64": {
+      "bf16": {
+        "dataset_index": 89,
+        "output_len": 21138,
+        "finish_reason": {
+          "type": "stop",
+          "matched": 151643
+        },
+        "success": true,
+        "request_latency_s": 125.69472123216838,
+        "ttft_s": 0.45767205115407705,
+        "drain_s": 125.23622565995902,
+        "decode_output_tok_s": 168.78502916076238
+      },
+      "dynamic": {
+        "dataset_index": 89,
+        "output_len": 17293,
+        "finish_reason": {
+          "type": "stop",
+          "matched": 151643
+        },
+        "success": true,
+        "request_latency_s": 114.29157741414383,
+        "ttft_s": 0.4579781391657889,
+        "drain_s": 113.83297474915162,
+        "decode_output_tok_s": 151.91555907335086
+      }
+    }
+  }
+}

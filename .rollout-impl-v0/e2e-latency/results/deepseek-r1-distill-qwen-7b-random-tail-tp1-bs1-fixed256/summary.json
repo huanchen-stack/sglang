@@ -1,0 +1,59 @@
+{
+  "experiment_label": "deepseek-r1-distill-qwen-7b-random-tail-tp1-bs1-fixed256",
+  "dataset_path": "/data/huanchen/sglang/.rollout-impl-v0/e2e-latency/results/deepseek-r1-distill-qwen-7b-random-tail-tp4-cap30k-final/bf16/selected_requests.jsonl",
+  "bf16_model_path": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+  "int4_model_path": "jakiAJK/DeepSeek-R1-Distill-Qwen-7B_GPTQ-int4",
+  "selected_indices": [
+    1286
+  ],
+  "selection": {
+    "mode": "single_request_fixed256",
+    "dataset_index": 1286,
+    "ignore_eos": true,
+    "tp_size": 1,
+    "batch_size": 1
+  },
+  "cap_hit_requirement_per_mode": 1,
+  "bf16": {
+    "drain_s": 2.416520243976265,
+    "request_latency_p50_s": 2.5012198109179735,
+    "request_latency_p99_s": 2.5012198109179735,
+    "ttft_p50_s": 0.08469956694170833,
+    "decode_output_tok_s": 105.93745309526751,
+    "finish_reasons": {
+      "length": 1
+    },
+    "cap_hit_summary": {
+      "cap_hit_count": 1,
+      "cap_hit_request_ids": [
+        0
+      ],
+      "total_requests": 1
+    }
+  },
+  "dynamic": {
+    "drain_s": 1.3709410512819886,
+    "request_latency_p50_s": 1.5131277069449425,
+    "request_latency_p99_s": 1.5131277069449425,
+    "ttft_p50_s": 0.14218665566295385,
+    "decode_output_tok_s": 186.73304717267774,
+    "finish_reasons": {
+      "length": 1
+    },
+    "cap_hit_summary": {
+      "cap_hit_count": 1,
+      "cap_hit_request_ids": [
+        0
+      ],
+      "total_requests": 1
+    }
+  },
+  "speedups": {
+    "drain": 1.7626726121568386,
+    "request_latency_p50": 1.653013026883252,
+    "request_latency_p99": 1.653013026883252,
+    "ttft_p50": 0.5956927993473895,
+    "decode_output_tok_s": 1.7626726121568386
+  },
+  "search_summary_path": "/data/huanchen/sglang/.rollout-impl-v0/e2e-latency/results/deepseek-r1-distill-qwen-7b-random-tail-tp1-bs1-fixed256/search_summary.json"
+}

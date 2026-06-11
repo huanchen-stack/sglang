@@ -1,0 +1,6 @@
+{
+  "ranking": "random",
+  "ranking_seed": 20260609,
+  "selected_batch_offset": 256,
+  "selection_reason": "reuse the third random batch from the same shuffle because it had the heaviest 16k tail among the sparse candidates"
+}

@@ -1,0 +1,68 @@
+{
+  "metadata": {
+    "source": ".rollout-impl-v0/decoding-throughput/rollout_policy_source.json",
+    "kernel_source": ".rollout-profile/qlora-kernel",
+    "projection_mapping": {
+      "gate_up": "up",
+      "qlora": "int4+torch2s",
+      "bf16": "bf16"
+    },
+    "note": "Projection choices copied from the old kernel profile. Old mixed/kernel-guided throughput from that profile is not used as a validated baseline because its CUDA graph path did not include LoRA."
+  },
+  "batch_sizes": {
+    "1": {
+      "qkv": "int4+torch2s",
+      "o": "int4+torch2s",
+      "up": "int4+torch2s",
+      "down": "int4+torch2s"
+    },
+    "4": {
+      "qkv": "int4+torch2s",
+      "o": "int4+torch2s",
+      "up": "int4+torch2s",
+      "down": "int4+torch2s"
+    },
+    "8": {
+      "qkv": "int4+torch2s",
+      "o": "int4+torch2s",
+      "up": "int4+torch2s",
+      "down": "int4+torch2s"
+    },
+    "16": {
+      "qkv": "int4+torch2s",
+      "o": "int4+torch2s",
+      "up": "int4+torch2s",
+      "down": "int4+torch2s"
+    },
+    "32": {
+      "qkv": "int4+torch2s",
+      "o": "int4+torch2s",
+      "up": "int4+torch2s",
+      "down": "int4+torch2s"
+    },
+    "64": {
+      "qkv": "int4+torch2s",
+      "o": "bf16",
+      "up": "int4+torch2s",
+      "down": "int4+torch2s"
+    },
+    "128": {
+      "qkv": "bf16",
+      "o": "bf16",
+      "up": "bf16",
+      "down": "int4+torch2s"
+    },
+    "256": {
+      "qkv": "bf16",
+      "o": "bf16",
+      "up": "bf16",
+      "down": "bf16"
+    },
+    "512": {
+      "qkv": "int4+torch2s",
+      "o": "bf16",
+      "up": "bf16",
+      "down": "bf16"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "source_batch": "/data/huanchen/sglang/.rollout-impl-v0/e2e-latency/results/deepseek-r1-distill-qwen-7b-random-tail-tp4-cap30k-final/bf16/selected_requests.jsonl",
+  "selected_request_id": 0,
+  "dataset_index": 1286,
+  "fixed_length_decode": true,
+  "max_new_tokens": 256,
+  "ignore_eos": true,
+  "tp_size": 1,
+  "batch_size": 1
+}

@@ -1,0 +1,6 @@
+{
+  "ranking": "random",
+  "ranking_seed": 20260609,
+  "selected_batch_offset": 0,
+  "selection_reason": "reuse the first random batch from the same shuffle because it had a heavier 16k tail and is more likely to preserve at least one 30k straggler"
+}

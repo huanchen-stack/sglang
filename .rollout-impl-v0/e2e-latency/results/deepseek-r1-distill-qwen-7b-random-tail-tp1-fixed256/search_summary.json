@@ -1,0 +1,11 @@
+{
+  "ranking": "random",
+  "ranking_seed": 20260609,
+  "selected_batch_offset": 256,
+  "selection_reason": "reuse the third random batch from the same shuffle because it had the heaviest 16k tail among the sparse candidates",
+  "fixed_length_decode": true,
+  "source_batch_dir": "/data/huanchen/sglang/.rollout-impl-v0/e2e-latency/results/deepseek-r1-distill-qwen-7b-random-tail-tp4-cap30k-final",
+  "max_new_tokens": 256,
+  "ignore_eos": true,
+  "tp_size": 1
+}

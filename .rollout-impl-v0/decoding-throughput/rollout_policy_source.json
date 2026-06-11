@@ -1,0 +1,80 @@
+{
+  "metadata": {
+    "source_note": "Minimal local copy of BF16 decode baseline and projection selections from the old profiling deliverable.",
+    "baseline_note": "Only BF16 decode throughput is used as a comparison baseline. Old mixed/kernel-guided throughput values are intentionally omitted because their CUDA graph path did not include LoRA."
+  },
+  "rows": [
+    {
+      "batch_size": 1,
+      "bf16_merged_tok_s": 53.688465000785335,
+      "select_qkv": "qlora",
+      "select_o": "qlora",
+      "select_gate_up": "qlora",
+      "select_down": "qlora"
+    },
+    {
+      "batch_size": 4,
+      "bf16_merged_tok_s": 182.8275923327416,
+      "select_qkv": "qlora",
+      "select_o": "qlora",
+      "select_gate_up": "qlora",
+      "select_down": "qlora"
+    },
+    {
+      "batch_size": 8,
+      "bf16_merged_tok_s": 432.3679023498497,
+      "select_qkv": "qlora",
+      "select_o": "qlora",
+      "select_gate_up": "qlora",
+      "select_down": "qlora"
+    },
+    {
+      "batch_size": 16,
+      "bf16_merged_tok_s": 855.3343157761195,
+      "select_qkv": "qlora",
+      "select_o": "qlora",
+      "select_gate_up": "qlora",
+      "select_down": "qlora"
+    },
+    {
+      "batch_size": 32,
+      "bf16_merged_tok_s": 1551.7586416421873,
+      "select_qkv": "qlora",
+      "select_o": "qlora",
+      "select_gate_up": "qlora",
+      "select_down": "qlora"
+    },
+    {
+      "batch_size": 64,
+      "bf16_merged_tok_s": 2893.505195927441,
+      "select_qkv": "qlora",
+      "select_o": "bf16",
+      "select_gate_up": "qlora",
+      "select_down": "qlora"
+    },
+    {
+      "batch_size": 128,
+      "bf16_merged_tok_s": 4545.674295848382,
+      "select_qkv": "bf16",
+      "select_o": "bf16",
+      "select_gate_up": "bf16",
+      "select_down": "qlora"
+    },
+    {
+      "batch_size": 256,
+      "bf16_merged_tok_s": 5857.724467285974,
+      "select_qkv": "bf16",
+      "select_o": "bf16",
+      "select_gate_up": "bf16",
+      "select_down": "bf16"
+    },
+    {
+      "batch_size": 512,
+      "bf16_merged_tok_s": 6484.942517314578,
+      "select_qkv": "qlora",
+      "select_o": "bf16",
+      "select_gate_up": "bf16",
+      "select_down": "bf16"
+    }
+  ]
+}

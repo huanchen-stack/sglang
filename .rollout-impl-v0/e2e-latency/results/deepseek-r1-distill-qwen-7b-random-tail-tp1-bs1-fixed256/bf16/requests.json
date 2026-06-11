@@ -1,0 +1,38 @@
+{
+  "metadata": {
+    "base_url": "http://127.0.0.1:31780",
+    "dataset_path": "/data/huanchen/sglang/.rollout-impl-v0/e2e-latency/results/deepseek-r1-distill-qwen-7b-random-tail-tp1-bs1-fixed256/bf16/selected_requests.jsonl",
+    "batch_size": 1,
+    "max_new_tokens": 256,
+    "temperature": 0.9,
+    "top_p": 0.95,
+    "top_k": 20,
+    "stream_interval": 64,
+    "stream_idle_timeout_s": 300.0,
+    "ignore_eos": true,
+    "lora_path": null,
+    "seed_base": 12345,
+    "wall_start_s": 3936711.164864596,
+    "wall_end_s": 3936713.66699694,
+    "wall_time_s": 2.502132344059646
+  },
+  "requests": [
+    {
+      "request_id": 0,
+      "dataset_index": 1286,
+      "sample_position": null,
+      "success": true,
+      "prompt": "<|im_start|>system\nWhen tackling complex reasoning tasks, you have access to the following actions. Use them as needed to progress through your thought process.\n\n[ASSESS]\n\n[ADVANCE]\n\n[VERIFY]\n\n[SIMPLIFY]\n\n[SYNTHESIZE]\n\n[PIVOT]\n\n[OUTPUT]\n\nYou should strictly follow the format below:\n\n[ACTION NAME]\n\n# Your action step 1\n\n# Your action step 2\n\n# Your action step 3\n\n...\n\nNext action: [NEXT ACTION NAME]<|im_end|>\n<|im_start|>user\nFor a given positive integer n denote its k-rounding as the minimum positive integer x, such that x ends with k or more zeros in base 10 and is divisible by n.\n\nFor example, 4-rounding of 375 is 375\u00b780 = 30000. 30000 is the minimum integer such that it ends with 4 or more zeros and is divisible by 375.\n\nWrite a program that will perform the k-rounding of n.\n\nInput\n\nThe only line contains two integers n and k (1 \u2264 n \u2264 109, 0 \u2264 k \u2264 8).\n\nOutput\n\nPrint the k-rounding of n.\n\nExamples\n\nInput\n\n375 4\n\n\nOutput\n\n30000\n\n\nInput\n\n10000 1\n\n\nOutput\n\n10000\n\n\nInput\n\n38101 0\n\n\nOutput\n\n38101\n\n\nInput\n\n123456789 8\n\n\nOutput\n\n12345678900000000\n\nWrite Python code to solve the problem. Present the code in \n```python\nYour code\n```\nat the end.<|im_end|>\n<|im_start|>assistant",
+      "start_s": 3936711.165111462,
+      "end_s": 3936713.666493028,
+      "first_token_s": 3936711.249811029,
+      "last_token_s": 3936713.666331273,
+      "output_len": 256,
+      "finish_reason": {
+        "type": "length",
+        "length": 256
+      },
+      "error": null
+    }
+  ]
+}

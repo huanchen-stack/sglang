@@ -1,0 +1,38 @@
+{
+  "metadata": {
+    "base_url": "http://127.0.0.1:31720",
+    "dataset_path": "/data/huanchen/sglang/.rollout-impl-v0/e2e-latency/straggler-isolation/deepseek-r1-distill-qwen-7b-cap30k-bs1/requests/dataset438_req41.jsonl",
+    "batch_size": 1,
+    "max_new_tokens": 30000,
+    "temperature": 0.9,
+    "top_p": 0.95,
+    "top_k": 20,
+    "stream_interval": 64,
+    "stream_idle_timeout_s": 300.0,
+    "ignore_eos": false,
+    "lora_path": null,
+    "seed_base": 12345,
+    "wall_start_s": 3934997.666997935,
+    "wall_end_s": 3935097.69370942,
+    "wall_time_s": 100.02671148488298
+  },
+  "requests": [
+    {
+      "request_id": 0,
+      "dataset_index": 438,
+      "sample_position": null,
+      "success": true,
+      "prompt": "<|im_start|>system\nWhen tackling complex reasoning tasks, you have access to the following actions. Use them as needed to progress through your thought process.\n\n[ASSESS]\n\n[ADVANCE]\n\n[VERIFY]\n\n[SIMPLIFY]\n\n[SYNTHESIZE]\n\n[PIVOT]\n\n[OUTPUT]\n\nYou should strictly follow the format below:\n\n[ACTION NAME]\n\n# Your action step 1\n\n# Your action step 2\n\n# Your action step 3\n\n...\n\nNext action: [NEXT ACTION NAME]<|im_end|>\n<|im_start|>user\nFind the smallest $a$ such that $\\frac{8\\sqrt{(3a)^2+(2)^2}-5a^2-2}{\\sqrt{2+5a^2}+4}=3$.\n\nPresent the answer in LaTex format: \\boxed{Your answer}<|im_end|>\n<|im_start|>assistant",
+      "start_s": 3934997.667368335,
+      "end_s": 3935097.69330186,
+      "first_token_s": 3934998.601746266,
+      "last_token_s": 3935097.692764156,
+      "output_len": 16334,
+      "finish_reason": {
+        "type": "stop",
+        "matched": 151643
+      },
+      "error": null
+    }
+  ]
+}

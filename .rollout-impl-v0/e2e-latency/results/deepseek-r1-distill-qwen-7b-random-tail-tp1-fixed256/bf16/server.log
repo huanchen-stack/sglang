@@ -1,0 +1,287 @@
+/data/huanchen/sglang/python/sglang/launch_server.py:54: UserWarning: 'python -m sglang.launch_server' is still supported, but 'sglang serve' is the recommended entrypoint.
+  Example: sglang serve --model-path <model> [options]
+  warnings.warn(
+[2026-06-09 21:54:42] server_args=ServerArgs(model_path='deepseek-ai/DeepSeek-R1-Distill-Qwen-7B', tokenizer_path='deepseek-ai/DeepSeek-R1-Distill-Qwen-7B', tokenizer_mode='auto', tokenizer_backend='huggingface', tokenizer_worker_num=1, detokenizer_worker_num=1, skip_tokenizer_init=False, load_format='auto', model_loader_extra_config='{}', trust_remote_code=False, context_length=35000, is_embedding=False, prefill_only_disable_kv_cache=False, enable_multimodal=None, revision=None, model_impl='auto', model_config_parser='auto', host='127.0.0.1', port=31760, fastapi_root_path='', grpc_mode=False, skip_server_warmup=False, warmups=None, nccl_port=None, checkpoint_engine_wait_weights_before_ready=False, ssl_keyfile=None, ssl_certfile=None, ssl_ca_certs=None, ssl_keyfile_password=None, enable_ssl_refresh=False, enable_http2=False, dtype='bfloat16', quantization=None, quantization_param_path=None, kv_cache_dtype='auto', enable_fp32_lm_head=False, modelopt_quant=None, modelopt_checkpoint_restore_path=None, modelopt_checkpoint_save_path=None, modelopt_export_path=None, quantize_and_serve=False, rl_quant_profile=None, mem_fraction_static=0.839, max_running_requests=128, max_queued_requests=None, max_total_tokens=None, chunked_prefill_size=8192, enable_dynamic_chunking=False, max_prefill_tokens=16384, prefill_max_requests=None, schedule_policy='fcfs', enable_priority_scheduling=False, disable_priority_preemption=False, default_priority_value=None, abort_on_priority_when_disabled=False, schedule_low_priority_values_first=False, priority_scheduling_preemption_threshold=10, schedule_conservativeness=1.0, page_size=1, swa_full_tokens_ratio=0.8, disable_hybrid_swa_memory=False, radix_eviction_policy='lru', enable_prefill_delayer=False, prefill_delayer_max_delay_passes=30, prefill_delayer_token_usage_low_watermark=None, prefill_delayer_forward_passes_buckets=None, prefill_delayer_wait_seconds_buckets=None, prefill_delayer_queue_min_ratio=None, prefill_delayer_max_delay_ms=None, device='cuda', tp_size=1, pp_size=1, pp_max_micro_batch_size=None, pp_async_batch_depth=0, stream_interval=1, batch_notify_size=16, stream_response_default_include_usage=False, incremental_streaming_output=False, enable_streaming_session=False, random_seed=841255466, constrained_json_whitespace_pattern=None, constrained_json_disable_any_whitespace=False, watchdog_timeout=300, soft_watchdog_timeout=None, dist_timeout=None, download_dir=None, model_checksum=None, base_gpu_id=0, gpu_id_step=1, sleep_on_idle=False, use_ray=False, custom_sigquit_handler=None, log_level='info', log_level_http=None, log_requests=False, log_requests_level=2, log_requests_format='text', log_requests_target=None, uvicorn_access_log_exclude_prefixes=[], crash_dump_folder=None, show_time_cost=False, enable_metrics=False, grpc_http_sidecar_port=None, enable_mfu_metrics=False, enable_metrics_for_all_schedulers=False, tokenizer_metrics_custom_labels_header='x-custom-labels', tokenizer_metrics_allowed_custom_labels=None, extra_metric_labels=None, bucket_time_to_first_token=None, bucket_inter_token_latency=None, bucket_e2e_request_latency=None, prompt_tokens_buckets=None, generation_tokens_buckets=None, gc_warning_threshold_secs=0.0, decode_log_interval=40, enable_request_time_stats_logging=False, kv_events_config=None, enable_forward_pass_metrics=False, forward_pass_metrics_worker_id='', forward_pass_metrics_ipc_name=None, enable_trace=False, otlp_traces_endpoint='localhost:4317', export_metrics_to_file=False, export_metrics_to_file_dir=None, stat_loggers=None, api_key=None, admin_api_key=None, served_model_name='deepseek-r1-distill-qwen-7b-bf16-e2e-tp1-fixed256', weight_version='default', chat_template=None, hf_chat_template_name=None, completion_template=None, file_storage_path='sglang_storage', enable_cache_report=False, reasoning_parser=None, strip_thinking_cache=False, enable_strict_thinking=False, tool_call_parser=None, tool_server=None, sampling_defaults='model', asr_max_buffer_seconds=60, asr_max_concurrent_sessions=32, dp_size=1, load_balance_method='round_robin', attn_cp_size=1, moe_dp_size=1, dist_init_addr=None, nnodes=1, node_rank=0, json_model_override_args='{}', preferred_sampling_params=None, enable_lora=None, enable_lora_overlap_loading=None, max_lora_rank=None, lora_target_modules=None, lora_paths=None, max_loaded_loras=None, max_loras_per_batch=8, lora_eviction_policy='lru', lora_backend='csgmv', max_lora_chunk_size=16, experts_shared_outer_loras=None, lora_use_virtual_experts=False, lora_strict_loading=False, lora_drain_wait_threshold=0.0, rollout_weight_colocation_int4_model_path=None, rollout_weight_colocation_int4_load_format=None, rollout_weight_colocation_int4_quantization=None, rollout_weight_colocation_precision_policy_path=None, rollout_weight_colocation_force_torch2s=True, attention_backend='triton', decode_attention_backend=None, prefill_attention_backend=None, sampling_backend='flashinfer', grammar_backend='xgrammar', radix_cache_backend=None, mm_attention_backend=None, fp8_gemm_runner_backend='auto', fp4_gemm_runner_backend='auto', dsa_prefill_backend=None, dsa_decode_backend=None, dsa_topk_backend='sgl-kernel', disable_flashinfer_autotune=False, mamba_backend='triton', speculative_algorithm=None, speculative_draft_model_path=None, speculative_draft_model_revision=None, speculative_draft_load_format=None, speculative_num_steps=None, speculative_eagle_topk=None, speculative_num_draft_tokens=None, speculative_dflash_block_size=None, speculative_accept_threshold_single=1.0, speculative_accept_threshold_acc=1.0, speculative_token_map=None, speculative_attention_mode='prefill', speculative_draft_attention_backend=None, speculative_draft_window_size=None, speculative_moe_runner_backend='auto', speculative_moe_a2a_backend=None, speculative_draft_model_quantization=None, speculative_skip_dp_mlp_sync=False, speculative_ngram_min_bfs_breadth=1, speculative_ngram_max_bfs_breadth=10, speculative_ngram_match_type='BFS', speculative_ngram_max_trie_depth=18, speculative_ngram_capacity=10000000, speculative_ngram_external_corpus_path=None, speculative_ngram_external_sam_budget=0, speculative_ngram_external_corpus_max_tokens=10000000, enable_multi_layer_eagle=False, speculative_adaptive=False, speculative_adaptive_config=None, ep_size=1, moe_a2a_backend='none', moe_runner_backend='auto', flashinfer_mxfp4_moe_precision='default', enable_flashinfer_allreduce_fusion=False, enforce_disable_flashinfer_allreduce_fusion=False, enable_aiter_allreduce_fusion=False, deepep_mode='auto', deepep_dispatcher_output_dtype='auto', ep_num_redundant_experts=0, ep_dispatch_algorithm=None, init_expert_location='trivial', enable_eplb=False, eplb_algorithm='auto', eplb_rebalance_num_iterations=1000, eplb_rebalance_layers_per_chunk=None, eplb_min_rebalancing_utilization_threshold=1.0, expert_distribution_recorder_mode=None, expert_distribution_recorder_buffer_size=1000, enable_expert_distribution_metrics=False, deepep_config=None, moe_dense_tp_size=None, elastic_ep_backend=None, enable_elastic_expert_backup=False, mooncake_ib_device=None, enable_deepep_waterfill=False, elastic_ep_rejoin=False, max_mamba_cache_size=None, mamba_ssm_dtype=None, mamba_full_memory_ratio=0.9, mamba_scheduler_strategy='no_buffer', mamba_track_interval=256, linear_attn_backend='triton', linear_attn_decode_backend=None, linear_attn_prefill_backend=None, enable_hierarchical_cache=False, hicache_ratio=2.0, hicache_size=0, hicache_write_policy='write_through', hicache_io_backend='kernel', hicache_mem_layout='layer_first', hicache_storage_backend=None, hicache_storage_prefetch_policy='timeout', hicache_storage_backend_extra_config=None, enable_hisparse=False, hisparse_config=None, enable_lmcache=False, lmcache_config_file=None, kt_weight_path=None, kt_method='AMXINT4', kt_cpuinfer=None, kt_threadpool_count=2, kt_num_gpu_experts=None, kt_max_deferred_experts_per_token=None, dllm_algorithm=None, dllm_algorithm_config=None, cpu_offload_gb=0, offload_group_size=-1, offload_num_in_group=1, offload_prefetch_step=1, offload_mode='cpu', enable_mis=False, disable_radix_cache=False, cuda_graph_max_bs=128, cuda_graph_bs=[128], disable_cuda_graph=False, disable_cuda_graph_padding=False, enable_breakable_cuda_graph=False, enable_profile_cuda_graph=False, enable_cudagraph_gc=False, debug_cuda_graph=False, enable_layerwise_nvtx_marker=False, enable_nccl_nvls=False, enable_symm_mem=False, disable_flashinfer_cutlass_moe_fp4_allgather=False, enable_tokenizer_batch_encode=False, disable_tokenizer_batch_decode=False, disable_outlines_disk_cache=False, disable_custom_all_reduce=False, enable_mscclpp=False, enable_torch_symm_mem=False, pre_warm_nccl=False, disable_overlap_schedule=False, enable_mixed_chunk=False, enable_dp_attention=False, enable_dp_attention_local_control_broadcast=False, enable_dp_lm_head=False, enable_two_batch_overlap=False, enable_single_batch_overlap=False, tbo_token_distribution_threshold=0.48, enable_torch_compile=True, disable_piecewise_cuda_graph=True, enforce_piecewise_cuda_graph=False, enable_torch_compile_debug_mode=False, torch_compile_max_bs=128, piecewise_cuda_graph_max_tokens=8192, piecewise_cuda_graph_tokens=[4, 8, 12, 16, 20, 24, 28, 32, 48, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 288, 320, 352, 384, 416, 448, 480, 512, 576, 640, 704, 768, 832, 896, 960, 1024, 1280, 1536, 1792, 2048, 2304, 2560, 2816, 3072, 3328, 3584, 3840, 4096, 4608, 5120, 5632, 6144, 6656, 7168, 7680, 8192], piecewise_cuda_graph_compiler='eager', torchao_config='', enable_p2p_check=False, triton_attention_reduce_in_fp32=False, triton_attention_num_kv_splits=8, triton_attention_split_tile_size=None, num_continuous_decode_steps=1, delete_ckpt_after_loading=False, enable_memory_saver=False, enable_weights_cpu_backup=False, enable_draft_weights_cpu_backup=False, allow_auto_truncate=False, enable_custom_logit_processor=False, flashinfer_mla_disable_ragged=False, disable_shared_experts_fusion=False, enforce_shared_experts_fusion=False, disable_chunked_prefix_cache=False, disable_fast_image_processor=False, keep_mm_feature_on_device=False, enable_return_hidden_states=False, enable_return_routed_experts=False, enable_return_indexer_topk=False, scheduler_recv_interval=1, numa_node=None, enable_deterministic_inference=False, rl_on_policy_target=None, enable_attn_tp_input_scattered=False, disable_attn_tp_gather=False, gc_threshold=None, enable_dsa_prefill_context_parallel=False, dsa_prefill_cp_mode='round-robin-split', enable_fused_qk_norm_rope=False, enable_precise_embedding_interpolation=False, enable_fused_moe_sum_all_reduce=False, enable_prefill_context_parallel=False, prefill_cp_mode='in-seq-split', enable_dynamic_batch_tokenizer=False, dynamic_batch_tokenizer_batch_size=32, dynamic_batch_tokenizer_batch_timeout=0.002, debug_tensor_dump_output_folder=None, debug_tensor_dump_layers=None, debug_tensor_dump_input_file=None, debug_tensor_dump_inject=False, disaggregation_mode='null', disaggregation_transfer_backend='mooncake', disaggregation_bootstrap_port=8998, disaggregation_ib_device=None, disaggregation_decode_enable_radix_cache=False, disaggregation_decode_enable_offload_kvcache=False, num_reserved_decode_tokens=512, disaggregation_decode_polling_interval=1, encoder_only=False, language_only=False, encoder_transfer_backend='zmq_to_scheduler', encoder_urls=[], enable_adaptive_dispatch_to_encoder=False, custom_weight_loader=[], weight_loader_disable_mmap=False, weight_loader_prefetch_checkpoints=False, weight_loader_prefetch_num_threads=4, weight_loader_drop_cache_after_load=False, remote_instance_weight_loader_seed_instance_ip=None, remote_instance_weight_loader_seed_instance_service_port=None, remote_instance_weight_loader_send_weights_group_ports=None, remote_instance_weight_loader_backend='nccl', remote_instance_weight_loader_start_seed_via_transfer_engine=False, engine_info_bootstrap_port=6789, modelexpress_config=None, enable_pdmux=False, pdmux_config_path=None, sm_group_num=8, enable_broadcast_mm_inputs_process=False, enable_prefix_mm_cache=False, mm_enable_dp_encoder=False, mm_process_config={}, limit_mm_data_per_request=None, enable_mm_global_cache=False, decrypted_config_file=None, decrypted_draft_config_file=None, forward_hooks=None, enable_quant_communications=False, msprobe_dump_config=None)
+[2026-06-09 21:54:46] Fixing v5 tokenizer component mismatch for deepseek-ai/DeepSeek-R1-Distill-Qwen-7B: pre_tokenizer Metaspace -> Sequence, decoder Sequence -> ByteLevel
+[2026-06-09 21:54:46] Restoring add_bos_token=True for deepseek-ai/DeepSeek-R1-Distill-Qwen-7B (was False after v5 loading)
+[2026-06-09 21:54:46] Using default HuggingFace chat template with detected content format: string
+[2026-06-09 21:54:46] Auto-detected template features: reasoning_parser=deepseek-r1
+[2026-06-09 21:54:54] Fixing v5 tokenizer component mismatch for deepseek-ai/DeepSeek-R1-Distill-Qwen-7B: pre_tokenizer Metaspace -> Sequence, decoder Sequence -> ByteLevel
+[2026-06-09 21:54:54] Restoring add_bos_token=True for deepseek-ai/DeepSeek-R1-Distill-Qwen-7B (was False after v5 loading)
+[2026-06-09 21:54:54] Init torch distributed begin.
+[2026-06-09 21:54:54] Fixing v5 tokenizer component mismatch for deepseek-ai/DeepSeek-R1-Distill-Qwen-7B: pre_tokenizer Metaspace -> Sequence, decoder Sequence -> ByteLevel
+[2026-06-09 21:54:54] Restoring add_bos_token=True for deepseek-ai/DeepSeek-R1-Distill-Qwen-7B (was False after v5 loading)
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
+[2026-06-09 21:54:55] Init torch distributed ends. elapsed=0.92 s, mem usage=0.08 GB
+[2026-06-09 21:54:55] Ignore import error when loading sglang.srt.models.gemma4_audio: cannot import name 'Gemma4AudioConfig' from 'transformers' (/data/huanchen/miniforge3/envs/sglang/lib/python3.12/site-packages/transformers/__init__.py)
+[2026-06-09 21:54:55] Ignore import error when loading sglang.srt.models.gemma4_causal: cannot import name 'Gemma4TextConfig' from 'transformers' (/data/huanchen/miniforge3/envs/sglang/lib/python3.12/site-packages/transformers/__init__.py)
+[2026-06-09 21:54:55] Ignore import error when loading sglang.srt.models.gemma4_mm: cannot import name 'Gemma4AudioConfig' from 'transformers' (/data/huanchen/miniforge3/envs/sglang/lib/python3.12/site-packages/transformers/__init__.py)
+[2026-06-09 21:54:55] Ignore import error when loading sglang.srt.models.gemma4_mtp: cannot import name 'Gemma4TextConfig' from 'transformers' (/data/huanchen/miniforge3/envs/sglang/lib/python3.12/site-packages/transformers/__init__.py)
+[2026-06-09 21:54:55] Ignore import error when loading sglang.srt.models.gemma4_vision: cannot import name 'Gemma4VisionConfig' from 'transformers' (/data/huanchen/miniforge3/envs/sglang/lib/python3.12/site-packages/transformers/__init__.py)
+[2026-06-09 21:54:55] Ignore import error when loading sglang.srt.models.mimo_audio: Can not import FA3 in sgl_kernel. Please check your installation.
+[2026-06-09 21:54:55] Ignore import error when loading sglang.srt.models.mimo_v2: Can not import FA3 in sgl_kernel. Please check your installation.
+[2026-06-09 21:54:55] Ignore import error when loading sglang.srt.models.mimo_v2_nextn: Can not import FA3 in sgl_kernel. Please check your installation.
+[2026-06-09 21:54:56] Load weight begin. avail mem=78.74 GB
+[2026-06-09 21:54:56] Found local HF snapshot for deepseek-ai/DeepSeek-R1-Distill-Qwen-7B at /data/huggingface/hub/models--deepseek-ai--DeepSeek-R1-Distill-Qwen-7B/snapshots/916b56a44061fd5cd7d6a8fb632557ed4f724f60; skipping download.
+Multi-thread loading shards:   0% Completed | 0/2 [00:00<?, ?it/s]Multi-thread loading shards:  50% Completed | 1/2 [00:00<00:00,  1.50it/s]Multi-thread loading shards: 100% Completed | 2/2 [00:01<00:00,  1.81it/s]Multi-thread loading shards: 100% Completed | 2/2 [00:01<00:00,  1.76it/s]
+[2026-06-09 21:54:57] Load weight end. elapsed=1.30 s, type=Qwen2ForCausalLM, avail mem=64.39 GB, mem usage=14.35 GB.
+[2026-06-09 21:54:57] Max concurrent requests (per dp worker) from the finalized token capacity: max_num_reqs=128.
+[2026-06-09 21:54:57] KV Cache is allocated. dtype: torch.bfloat16, #tokens: 968240, K size: 25.85 GB, V size: 25.85 GB
+[2026-06-09 21:54:57] Memory pool end. avail mem=12.64 GB
+[2026-06-09 21:54:57] Capture cuda graph begin. This can take up to several minutes. avail mem=12.60 GB
+[2026-06-09 21:54:57] Capture cuda graph bs [128]
+  0%|          | 0/1 [00:00<?, ?it/s]Capturing batches (bs=128 avail_mem=12.48 GB):   0%|          | 0/1 [00:00<?, ?it/s]Autotune Choices Stats:
+{"num_choices": 20, "num_triton_choices": 18, "best_kernel": "bias_addmm", "best_time": 0.050175998359918594, "best_triton_pos": 1, "best_triton_time": 0.055296000093221664, "best_triton_kernel": "triton_mm_11", "best_triton_kernel_desc": "ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4"}
+AUTOTUNE addmm(128x4608, 128x3584, 3584x4608)
+strides: [0, 1], [3584, 1], [1, 3584]
+dtypes: torch.bfloat16, torch.bfloat16, torch.bfloat16
+  bias_addmm 0.0502 ms 100.0% 
+  triton_mm_11 0.0553 ms 90.7% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  addmm 0.0573 ms 87.5% 
+  triton_mm_8 0.0635 ms 79.0% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=64, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=5, num_warps=4
+  triton_mm_7 0.0655 ms 76.6% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=8
+  triton_mm_16 0.0655 ms 76.6% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_10 0.0666 ms 75.4% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=8
+  triton_mm_13 0.0666 ms 75.4% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=8
+  triton_mm_17 0.0727 ms 69.0% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=5, num_warps=8
+  triton_mm_9 0.0819 ms 61.2% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 0.4879 seconds and 0.5508 seconds precompiling for 20 choices
+Autotune Choices Stats:
+{"num_choices": 19, "num_triton_choices": 18, "best_kernel": "triton_mm_26", "best_kernel_desc": "ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=64, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=5, num_warps=4", "best_time": 0.05222399905323982, "best_triton_pos": 0}
+AUTOTUNE mm(128x3584, 3584x3584)
+strides: [3584, 1], [1, 3584]
+dtypes: torch.bfloat16, torch.bfloat16
+  triton_mm_26 0.0522 ms 100.0% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=64, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=5, num_warps=4
+  triton_mm_29 0.0522 ms 100.0% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_25 0.0543 ms 96.2% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=8
+  triton_mm_28 0.0614 ms 85.0% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=8
+  triton_mm_31 0.0614 ms 85.0% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=8
+  triton_mm_34 0.0635 ms 82.3% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_22 0.0676 ms 77.3% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=64, BLOCK_N=32, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=5, num_warps=4
+  triton_mm_35 0.0707 ms 73.9% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=5, num_warps=8
+  triton_mm_19 0.0727 ms 71.8% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=32, BLOCK_N=32, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=2, num_warps=4
+  triton_mm_27 0.0788 ms 66.2% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 0.4093 seconds and 0.5620 seconds precompiling for 19 choices
+Autotune Choices Stats:
+{"num_choices": 19, "num_triton_choices": 18, "best_kernel": "triton_mm_52", "best_kernel_desc": "ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4", "best_time": 0.20479999482631683, "best_triton_pos": 0}
+AUTOTUNE mm(128x3584, 3584x37888)
+strides: [3584, 1], [1, 3584]
+dtypes: torch.bfloat16, torch.bfloat16
+  triton_mm_52 0.2048 ms 100.0% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_53 0.2109 ms 97.1% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=5, num_warps=8
+  triton_mm_47 0.2181 ms 93.9% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  mm 0.2284 ms 89.7% 
+  triton_mm_44 0.2519 ms 81.3% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=64, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=5, num_warps=4
+  triton_mm_43 0.2570 ms 79.7% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=8
+  triton_mm_51 0.3205 ms 63.9% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_48 0.3236 ms 63.3% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_49 0.3287 ms 62.3% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=8
+  triton_mm_42 0.3461 ms 59.2% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=2, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 1.1714 seconds and 0.5286 seconds precompiling for 19 choices
+Autotune Choices Stats:
+{"num_choices": 19, "num_triton_choices": 18, "best_kernel": "mm", "best_time": 0.12595200538635254, "best_triton_pos": 1, "best_triton_time": 0.2099200040102005, "best_triton_kernel": "triton_mm_62", "best_triton_kernel_desc": "ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=64, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=5, num_warps=4"}
+AUTOTUNE mm(128x18944, 18944x3584)
+strides: [18944, 1], [1, 18944]
+dtypes: torch.bfloat16, torch.bfloat16
+  mm 0.1260 ms 100.0% 
+  triton_mm_62 0.2099 ms 60.0% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=64, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=5, num_warps=4
+  triton_mm_65 0.2109 ms 59.7% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_61 0.2335 ms 53.9% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=8
+  triton_mm_64 0.2550 ms 49.4% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=8
+  triton_mm_67 0.2570 ms 49.0% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=8
+  triton_mm_58 0.2601 ms 48.4% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=64, BLOCK_N=32, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=5, num_warps=4
+  triton_mm_55 0.2755 ms 45.7% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=32, BLOCK_N=32, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=2, num_warps=4
+  triton_mm_70 0.2949 ms 42.7% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_71 0.3338 ms 37.7% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=5, num_warps=8
+SingleProcess AUTOTUNE benchmarking takes 1.1629 seconds and 0.0002 seconds precompiling for 19 choices
+Autotune Choices Stats:
+{"num_choices": 19, "num_triton_choices": 18, "best_kernel": "triton_mm_88", "best_kernel_desc": "ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4", "best_time": 0.7423999905586243, "best_triton_pos": 0}
+AUTOTUNE mm(128x3584, 3584x152064)
+strides: [3584, 1], [1, 3584]
+dtypes: torch.bfloat16, torch.bfloat16
+  triton_mm_88 0.7424 ms 100.0% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  mm 0.7762 ms 95.6% 
+  triton_mm_89 0.7772 ms 95.5% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=5, num_warps=8
+  triton_mm_83 0.7987 ms 92.9% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_79 0.9544 ms 77.8% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=64, BLOCK_M=64, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=8
+  triton_mm_80 1.0220 ms 72.6% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=128, BLOCK_M=64, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=5, num_warps=4
+  triton_mm_87 1.1336 ms 65.5% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_85 1.2308 ms 60.3% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=4, num_warps=8
+  triton_mm_84 1.2329 ms 60.2% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=128, BLOCK_N=64, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+  triton_mm_81 1.2554 ms 59.1% ACC_TYPE='tl.float32', ALLOW_TF32=False, BLOCK_K=32, BLOCK_M=64, BLOCK_N=128, EVEN_K=True, GROUP_M=8, USE_FAST_ACCUM=False, num_stages=3, num_warps=4
+SingleProcess AUTOTUNE benchmarking takes 0.7824 seconds and 0.4378 seconds precompiling for 19 choices
+Capturing batches (bs=128 avail_mem=12.48 GB): 100%|██████████| 1/1 [00:21<00:00, 21.42s/it]Capturing batches (bs=128 avail_mem=12.48 GB): 100%|██████████| 1/1 [00:21<00:00, 21.42s/it]
+[2026-06-09 21:55:19] Capture cuda graph end. Time elapsed: 22.04 s. mem usage=0.22 GB. avail mem=12.38 GB.
+[2026-06-09 21:55:19] Disable piecewise CUDA graph because --disable-piecewise-cuda-graph is set
+[2026-06-09 21:55:22] Fixing v5 tokenizer component mismatch for deepseek-ai/DeepSeek-R1-Distill-Qwen-7B: pre_tokenizer Metaspace -> Sequence, decoder Sequence -> ByteLevel
+[2026-06-09 21:55:22] Restoring add_bos_token=True for deepseek-ai/DeepSeek-R1-Distill-Qwen-7B (was False after v5 loading)
+[2026-06-09 21:55:22] max_total_num_tokens=968240, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=128, context_len=35000, available_gpu_mem=12.38 GB
+[2026-06-09 21:55:22] Tree cache initialized: source=default impl=RadixCache hybrid_swa=False hybrid_ssm=False hierarchical=False streaming_wrapped=False
+[2026-06-09 21:55:23] INFO:     Started server process [2576887]
+[2026-06-09 21:55:23] INFO:     Waiting for application startup.
+[2026-06-09 21:55:23] Using default chat sampling params from model generation config: {'temperature': 0.6, 'top_p': 0.95}
+[2026-06-09 21:55:23] INFO:     Application startup complete.
+[2026-06-09 21:55:23] INFO:     Uvicorn running on http://127.0.0.1:31760 (Press CTRL+C to quit)
+[2026-06-09 21:55:24] INFO:     127.0.0.1:44078 - "GET /model_info HTTP/1.1" 200 OK
+2026-06-09 21:55:24,763 - CUTE_DSL - WARNING - [handle_import_error] - Unexpected error during package walk: cutlass.cute.experimental
+[2026-06-09 21:55:24] Unexpected error during package walk: cutlass.cute.experimental
+[2026-06-09 21:55:24] INFO:     127.0.0.1:44088 - "GET /health HTTP/1.1" 503 Service Unavailable
+[2026-06-09 21:55:25] Prefill batch, #new-seq: 1, #new-token: 7, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 2.73
+[2026-06-09 21:55:25] INFO:     127.0.0.1:44082 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:55:25] The server is fired up and ready to roll!
+[2026-06-09 21:55:26] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.74
+[2026-06-09 21:55:27] INFO:     127.0.0.1:44088 - "GET /health HTTP/1.1" 200 OK
+[2026-06-09 21:56:45] Prefill batch, #new-seq: 1, #new-token: 1, #cached-token: 0, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.01
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49702 - "GET /health HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49708 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49716 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49718 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49720 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49726 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49730 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49736 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49746 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49752 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49754 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49768 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49782 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49794 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49800 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49808 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49822 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49830 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49844 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49860 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49864 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49872 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49886 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49900 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49912 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49924 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49928 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49936 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49938 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49952 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49956 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49964 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49980 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49986 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:49996 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50006 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50012 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50014 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50026 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50030 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50044 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50058 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50074 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50078 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50088 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50102 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50110 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50126 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50136 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50138 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50154 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50156 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50166 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50174 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50176 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50182 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50190 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50192 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50196 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50208 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50216 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50222 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50224 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50236 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50244 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] Prefill batch, #new-seq: 1, #new-token: 392, #cached-token: 1, token usage: 0.01, #running-req: 0, #queue-req: 33, #pending-token: 0, cuda graph: False, input throughput (token/s): 340.75
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50260 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50272 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50284 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50294 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50310 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50312 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50314 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50328 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50336 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50352 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50362 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50378 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50380 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50396 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50406 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50418 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50428 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50442 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50446 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50462 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50474 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50482 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50486 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50488 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50502 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50518 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50520 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50532 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50538 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50546 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50552 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50558 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50564 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50576 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50592 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50598 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50604 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50606 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50618 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50620 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50632 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50642 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50656 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50670 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50680 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50682 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50688 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50704 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50718 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50734 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50736 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50742 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50748 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50762 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50772 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50776 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50782 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50798 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50808 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50824 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50836 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50844 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50850 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] INFO:     127.0.0.1:50866 - "POST /generate HTTP/1.1" 200 OK
+[2026-06-09 21:56:46] Prefill batch, #new-seq: 19, #new-token: 8192, #cached-token: 19, token usage: 0.01, #running-req: 1, #queue-req: 15, #pending-token: 13831, cuda graph: False, input throughput (token/s): 16674.23
+[2026-06-09 21:56:47] Prefill batch, #new-seq: 30, #new-token: 8192, #cached-token: 3510, token usage: 0.02, #running-req: 19, #queue-req: 55, #pending-token: 7148, cuda graph: False, input throughput (token/s): 16397.72
+[2026-06-09 21:56:47] Prefill batch, #new-seq: 25, #new-token: 8192, #cached-token: 2926, token usage: 0.03, #running-req: 48, #queue-req: 28, #pending-token: 22221, cuda graph: False, input throughput (token/s): 16909.16
+[2026-06-09 21:56:48] Prefill batch, #new-seq: 28, #new-token: 8192, #cached-token: 3287, token usage: 0.04, #running-req: 72, #queue-req: 1, #pending-token: 10742, cuda graph: False, input throughput (token/s): 16814.12
+[2026-06-09 21:56:48] Prefill batch, #new-seq: 28, #new-token: 7288, #cached-token: 3292, token usage: 0.04, #running-req: 99, #queue-req: 1, #pending-token: 162, cuda graph: False, input throughput (token/s): 17099.55
+[2026-06-09 21:56:49] Decode batch, #running-req: 127, #token: 42059, token usage: 0.04, cuda graph: True, gen throughput (token/s): 44.31, #queue-req: 1
+[2026-06-09 21:56:49] Decode batch, #running-req: 127, #token: 47139, token usage: 0.05, cuda graph: True, gen throughput (token/s): 8275.89, #queue-req: 1
+[2026-06-09 21:56:50] Decode batch, #running-req: 127, #token: 52219, token usage: 0.05, cuda graph: True, gen throughput (token/s): 8191.26, #queue-req: 1
+[2026-06-09 21:56:51] Decode batch, #running-req: 127, #token: 57299, token usage: 0.06, cuda graph: True, gen throughput (token/s): 8072.91, #queue-req: 1
+[2026-06-09 21:56:51] Decode batch, #running-req: 127, #token: 62379, token usage: 0.06, cuda graph: True, gen throughput (token/s): 7985.19, #queue-req: 1
+[2026-06-09 21:56:52] Decode batch, #running-req: 127, #token: 67459, token usage: 0.07, cuda graph: True, gen throughput (token/s): 7893.71, #queue-req: 1
+[2026-06-09 21:56:52] Prefill batch, #new-seq: 1, #new-token: 40, #cached-token: 122, token usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 9.88
+[2026-06-09 21:56:52] Decode batch, #running-req: 1, #token: 177, token usage: 0.00, cuda graph: True, gen throughput (token/s): 5227.20, #queue-req: 0
+[2026-06-09 21:56:53] Decode batch, #running-req: 1, #token: 217, token usage: 0.00, cuda graph: True, gen throughput (token/s): 77.45, #queue-req: 0
+[2026-06-09 21:56:54] Decode batch, #running-req: 1, #token: 257, token usage: 0.00, cuda graph: True, gen throughput (token/s): 77.17, #queue-req: 0
+[2026-06-09 21:56:54] Decode batch, #running-req: 1, #token: 297, token usage: 0.00, cuda graph: True, gen throughput (token/s): 77.37, #queue-req: 0
+[2026-06-09 21:56:55] Decode batch, #running-req: 1, #token: 337, token usage: 0.00, cuda graph: True, gen throughput (token/s): 76.86, #queue-req: 0
+[2026-06-09 21:56:55] Decode batch, #running-req: 1, #token: 377, token usage: 0.00, cuda graph: True, gen throughput (token/s): 77.16, #queue-req: 0
+[2026-06-09 21:56:56] Decode batch, #running-req: 1, #token: 417, token usage: 0.00, cuda graph: True, gen throughput (token/s): 70.02, #queue-req: 0
+[2026-06-09 21:56:56] SIGTERM received. signum=None frame=None. Draining requests and shutting down...
+[2026-06-09 21:56:59] Gracefully exiting... Remaining number of requests 0. Remaining requests remaining_rids=[].

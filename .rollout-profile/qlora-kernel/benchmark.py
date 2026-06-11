@@ -263,7 +263,7 @@ def compile_eager_callable(fn: Callable[[], object]) -> Callable[[], object]:
     """Use torch.compile's Dynamo wrapper without Inductor around custom kernels.
 
     SGLang csgmv already launches custom Triton kernels. Inductor compilation of
-    that Python/Triton path is not the runtime behavior and can spend minutes in
+    that Python/Triton pathf is not the runtime behavior and can spend minutes in
     compile workers. The eager backend still exercises Dynamo wrapping while
     leaving the backend kernels intact for CUDA Graph timing.
     """

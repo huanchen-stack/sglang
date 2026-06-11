@@ -1,0 +1,29 @@
+\documentclass{article}
+\usepackage[margin=0.25in]{geometry}
+\usepackage{booktabs}
+\usepackage{array}
+\pagestyle{empty}
+
+\begin{document}
+\sffamily
+\begin{center}
+\textbf{Fastest Nsight Up/Down Replay}
+
+\vspace{0.35em}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{r r r r r r}
+\toprule
+TP &
+BF16 runtime ($\mu$s) &
+Marlin time ($\mu$s) &
+QLoRA time ($\mu$s) &
+Marlin speedup vs BF16 &
+QLoRA speedup vs BF16 \\
+\midrule
+1 & 522.431 & 163.199 & 185.504 & 3.20$\times$ & 2.82$\times$ \\
+2 & 299.030 & 112.672 & 142.537 & 2.65$\times$ & 2.10$\times$ \\
+4 & 184.341 & 105.977 & 156.735 & 1.74$\times$ & 1.18$\times$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{document}

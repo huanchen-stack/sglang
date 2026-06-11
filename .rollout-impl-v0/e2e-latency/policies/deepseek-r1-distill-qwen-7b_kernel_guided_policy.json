@@ -1,0 +1,62 @@
+{
+  "metadata": {
+    "source": ".rollout-profile/qlora-kernel/r1-7b/README.md",
+    "note": "Kernel-guided fallback policy for DeepSeek-R1-Distill-Qwen-7B derived from the single-GPU R1 7B sweep."
+  },
+  "batch_sizes": {
+    "1": {
+      "qkv": "int4+torch2s",
+      "o": "int4+torch2s",
+      "up": "int4+torch2s",
+      "down": "int4+torch2s"
+    },
+    "4": {
+      "qkv": "int4+torch2s",
+      "o": "int4+torch2s",
+      "up": "int4+torch2s",
+      "down": "int4+torch2s"
+    },
+    "8": {
+      "qkv": "int4+torch2s",
+      "o": "int4+torch2s",
+      "up": "int4+torch2s",
+      "down": "int4+torch2s"
+    },
+    "16": {
+      "qkv": "bf16",
+      "o": "int4+torch2s",
+      "up": "int4+torch2s",
+      "down": "int4+torch2s"
+    },
+    "32": {
+      "qkv": "bf16",
+      "o": "bf16",
+      "up": "int4+torch2s",
+      "down": "int4+torch2s"
+    },
+    "64": {
+      "qkv": "bf16",
+      "o": "bf16",
+      "up": "int4+torch2s",
+      "down": "int4+torch2s"
+    },
+    "128": {
+      "qkv": "bf16",
+      "o": "bf16",
+      "up": "bf16",
+      "down": "int4+torch2s"
+    },
+    "256": {
+      "qkv": "bf16",
+      "o": "bf16",
+      "up": "bf16",
+      "down": "bf16"
+    },
+    "512": {
+      "qkv": "bf16",
+      "o": "bf16",
+      "up": "bf16",
+      "down": "bf16"
+    }
+  }
+}

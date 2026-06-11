@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure rollout-colocated decode throughput against the old frontier policy."""
+"""Measure rollout-colocated decode throughput against the BF16 decode baseline."""
 
 from __future__ import annotations
 
@@ -20,9 +20,9 @@ from typing import Any
 THIS_DIR = Path(__file__).resolve().parent
 ROOT = THIS_DIR.parents[1]
 OLD_THROUGHPUT_DIR = ROOT / ".rollout-profile" / "qlora-decoding-throughput"
-OLD_FRONTIER = OLD_THROUGHPUT_DIR / "frontier_decoding_throughput.json"
+OLD_PROFILE = THIS_DIR / "rollout_policy_source.json"
 OLD_CLIENT = OLD_THROUGHPUT_DIR / "decoding_client.py"
-DEFAULT_POLICY = THIS_DIR / "frontier_precision_policy.json"
+DEFAULT_POLICY = THIS_DIR / "rollout_precision_policy.json"
 DEFAULT_OUT_DIR = THIS_DIR / "results" / "qwen2.5-14b-tp1-colocated"
 
 
@@ -39,15 +39,15 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
-def precision_from_frontier_choice(choice: str) -> str:
+def precision_from_profile_choice(choice: str) -> str:
     if choice == "bf16":
         return "bf16"
     if choice == "qlora":
         return "int4+torch2s"
-    raise ValueError(f"Unsupported frontier precision choice: {choice}")
+    raise ValueError(f"Unsupported profile precision choice: {choice}")
 
 
-def load_frontier_rows(path: Path) -> list[dict[str, Any]]:
+def load_profile_rows(path: Path) -> list[dict[str, Any]]:
     data = load_json(path)
     rows = list(data.get("rows", []))
     if not rows:
@@ -55,18 +55,18 @@ def load_frontier_rows(path: Path) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda row: int(row["batch_size"]))
 
 
-def build_policy_from_frontier(rows: list[dict[str, Any]]) -> dict[str, Any]:
+def build_policy_from_profile(rows: list[dict[str, Any]]) -> dict[str, Any]:
     batch_sizes = {}
     for row in rows:
         batch_sizes[str(int(row["batch_size"]))] = {
-            "qkv": precision_from_frontier_choice(row["select_qkv"]),
-            "o": precision_from_frontier_choice(row["select_o"]),
-            "up": precision_from_frontier_choice(row["select_gate_up"]),
-            "down": precision_from_frontier_choice(row["select_down"]),
+            "qkv": precision_from_profile_choice(row["select_qkv"]),
+            "o": precision_from_profile_choice(row["select_o"]),
+            "up": precision_from_profile_choice(row["select_gate_up"]),
+            "down": precision_from_profile_choice(row["select_down"]),
         }
     return {
         "metadata": {
-            "source": str(OLD_FRONTIER.relative_to(ROOT)),
+            "source": str(OLD_PROFILE.relative_to(ROOT)),
             "kernel_source": ".rollout-profile/qlora-kernel",
             "projection_mapping": {
                 "gate_up": "up",
@@ -74,8 +74,10 @@ def build_policy_from_frontier(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 "bf16": "bf16",
             },
             "note": (
-                "Generated from the old kernel-guided frontier, then measured "
-                "with BF16 and INT4 weights colocated by rollout/impl_v0."
+                "Projection choices copied from the old kernel profile. "
+                "Old mixed/kernel-guided throughput from that profile is not "
+                "used as a validated baseline because its CUDA graph path did "
+                "not include LoRA."
             ),
         },
         "batch_sizes": batch_sizes,
@@ -199,7 +201,7 @@ def run_client(args: argparse.Namespace, batch_size: int, output_path: Path) -> 
         "--base-url",
         f"http://{args.host}:{args.port}",
         "--scheme",
-        "rollout_colocated_frontier",
+        "rollout_colocated_decode",
         "--batch-size",
         str(batch_size),
         "--decode-tokens",
@@ -261,7 +263,7 @@ def parse_log_checks(log_path: Path, batch_size: int, policy: dict[str, str]) ->
 def summarize_batch_result(
     *,
     batch_size: int,
-    frontier_row: dict[str, Any],
+    profile_row: dict[str, Any],
     policy: dict[str, str],
     client_path: Path,
     server_log: Path,
@@ -274,10 +276,10 @@ def summarize_batch_result(
     measured_tok_s = client_summary.get("full_decode_tok_s")
     if measured_tok_s is None:
         measured_tok_s = client_summary.get("decode_tok_s")
-    frontier_tok_s = frontier_row.get("kernel_guided_frontier_tok_s")
-    ratio = (
-        measured_tok_s / frontier_tok_s
-        if measured_tok_s is not None and frontier_tok_s
+    bf16_tok_s = profile_row.get("bf16_merged_tok_s")
+    measured_vs_bf16_ratio = (
+        measured_tok_s / bf16_tok_s
+        if measured_tok_s is not None and bf16_tok_s
         else None
     )
     log_checks = parse_log_checks(server_log, batch_size, policy)
@@ -309,12 +311,8 @@ def summarize_batch_result(
         "measured_all_started_decode_tok_s": client_summary.get(
             "all_started_decode_tok_s"
         ),
-        "old_frontier_tok_s": frontier_tok_s,
-        "old_bf16_merged_tok_s": frontier_row.get("bf16_merged_tok_s"),
-        "old_qlora_torch_twostream_tok_s": frontier_row.get(
-            "qlora_torch_twostream_tok_s"
-        ),
-        "measured_vs_old_frontier_ratio": ratio,
+        "old_bf16_merged_tok_s": bf16_tok_s,
+        "measured_vs_old_bf16_ratio": measured_vs_bf16_ratio,
         "log_checks": log_checks,
     }
 
@@ -324,11 +322,11 @@ def run_one_batch(
     *,
     batch_size: int,
     policy: dict[str, str],
-    frontier_row: dict[str, Any],
+    profile_row: dict[str, Any],
 ) -> dict[str, Any]:
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    server_log = args.out_dir / f"rollout_colocated_frontier.bs{batch_size}.server.log"
-    client_json = args.out_dir / f"rollout_colocated_frontier.bs{batch_size}.json"
+    server_log = args.out_dir / f"rollout_colocated_decode.bs{batch_size}.server.log"
+    client_json = args.out_dir / f"rollout_colocated_decode.bs{batch_size}.json"
     base_url = f"http://{args.host}:{args.port}"
     server_cmd = build_server_cmd(args, batch_size)
     batch_start = now()
@@ -409,7 +407,7 @@ def run_one_batch(
 
     return summarize_batch_result(
         batch_size=batch_size,
-        frontier_row=frontier_row,
+        profile_row=profile_row,
         policy=policy,
         client_path=client_json,
         server_log=server_log,
@@ -431,8 +429,8 @@ def write_summary(out_dir: Path, payload: dict[str, Any]) -> None:
                 "success",
                 "measured_full_decode_tok_s",
                 "measured_all_started_decode_tok_s",
-                "old_frontier_tok_s",
-                "measured_vs_old_frontier_ratio",
+                "old_bf16_merged_tok_s",
+                "measured_vs_old_bf16_ratio",
                 "policy",
                 "error",
             ],
@@ -449,9 +447,9 @@ def write_summary(out_dir: Path, payload: dict[str, Any]) -> None:
                     "measured_all_started_decode_tok_s": row.get(
                         "measured_all_started_decode_tok_s"
                     ),
-                    "old_frontier_tok_s": row.get("old_frontier_tok_s"),
-                    "measured_vs_old_frontier_ratio": row.get(
-                        "measured_vs_old_frontier_ratio"
+                    "old_bf16_merged_tok_s": row.get("old_bf16_merged_tok_s"),
+                    "measured_vs_old_bf16_ratio": row.get(
+                        "measured_vs_old_bf16_ratio"
                     ),
                     "policy": json.dumps(row.get("policy", {}), sort_keys=True),
                     "error": row.get("error"),
@@ -474,7 +472,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lora-name", default="default")
     parser.add_argument("--lora-startup-arg", default=None)
     parser.add_argument("--precision-policy-path", type=Path, default=DEFAULT_POLICY)
-    parser.add_argument("--frontier-json", type=Path, default=OLD_FRONTIER)
+    parser.add_argument("--policy-source-json", type=Path, default=OLD_PROFILE)
     parser.add_argument("--batch-sizes", type=int, nargs="+", default=None)
     parser.add_argument("--max-batch-size", type=int, default=None)
     parser.add_argument("--continue-after-failure", action="store_true")
@@ -494,11 +492,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--reserve-sms", type=int, default=1)
     parser.add_argument(
         "--flip-twostream",
+        dest="flip_twostream",
         action="store_true",
+        default=True,
         help=(
-            "Set SGLANG_ROLLOUT_FLIP_TWOSTREAM=1 so the INT4 base projection "
+            "Set SGLANG_ROLLOUT_FLIP_TWOSTREAM=1, the default, so the INT4 base projection "
             "runs on the side stream and the LoRA patch runs on the current stream."
         ),
+    )
+    parser.add_argument(
+        "--no-flip-twostream",
+        dest="flip_twostream",
+        action="store_false",
+        help="Disable flipped two-stream placement for comparison runs.",
     )
     parser.add_argument("--max-lora-rank", type=int, default=16)
     parser.add_argument("--int4-load-format", default=None)
@@ -537,8 +543,8 @@ def build_child_cmd(
         args.lora_name,
         "--precision-policy-path",
         str(args.precision_policy_path),
-        "--frontier-json",
-        str(args.frontier_json),
+        "--policy-source-json",
+        str(args.policy_source_json),
         "--batch-sizes",
         str(batch_size),
         "--decode-tokens",
@@ -592,7 +598,7 @@ def run_parallel_batches(
     *,
     batch_sizes: list[int],
     policy_payload: dict[str, Any],
-    frontier_by_batch: dict[int, dict[str, Any]],
+    profile_by_batch: dict[int, dict[str, Any]],
 ) -> int:
     gpus = [gpu.strip() for gpu in args.parallel_gpus.split(",") if gpu.strip()]
     if not gpus:
@@ -611,7 +617,7 @@ def run_parallel_batches(
                 "Parallel TP1 decode throughput validation for rollout/impl_v0 "
                 "with BF16 and INT4 weights colocated in VRAM."
             ),
-            "frontier_json": str(args.frontier_json),
+            "policy_source_json": str(args.policy_source_json),
             "precision_policy_path": str(args.precision_policy_path),
             "old_client": str(OLD_CLIENT),
             "batch_sizes_requested": batch_sizes,
@@ -621,6 +627,7 @@ def run_parallel_batches(
             "tp_size": args.tp_size,
             "mem_fraction_static": args.mem_fraction_static,
             "flip_twostream": args.flip_twostream,
+            "reserve_sms": args.reserve_sms,
         },
         "rows": [],
     }
@@ -668,8 +675,8 @@ def run_parallel_batches(
                     "gpu": gpu,
                     "port": port,
                     "policy": policy_payload["batch_sizes"][str(batch_size)],
-                    "old_frontier_tok_s": frontier_by_batch[batch_size].get(
-                        "kernel_guided_frontier_tok_s"
+                    "old_bf16_merged_tok_s": profile_by_batch[batch_size].get(
+                        "bf16_merged_tok_s"
                     ),
                 }
             )
@@ -746,8 +753,10 @@ def run_parallel_batches(
                         "measured_full_decode_tok_s": row.get(
                             "measured_full_decode_tok_s"
                         ),
-                        "old_frontier_tok_s": row.get("old_frontier_tok_s"),
-                        "ratio": row.get("measured_vs_old_frontier_ratio"),
+                        "old_bf16_merged_tok_s": row.get("old_bf16_merged_tok_s"),
+                        "measured_vs_old_bf16_ratio": row.get(
+                            "measured_vs_old_bf16_ratio"
+                        ),
                         "error": row.get("error"),
                     }
                 ),
@@ -767,9 +776,9 @@ def run_parallel_batches(
 
 def main() -> int:
     args = parse_args()
-    frontier_rows = load_frontier_rows(args.frontier_json)
-    frontier_by_batch = {int(row["batch_size"]): row for row in frontier_rows}
-    policy_payload = build_policy_from_frontier(frontier_rows)
+    profile_rows = load_profile_rows(args.policy_source_json)
+    profile_by_batch = {int(row["batch_size"]): row for row in profile_rows}
+    policy_payload = build_policy_from_profile(profile_rows)
     write_json(args.precision_policy_path, policy_payload)
 
     if args.write_policy_only:
@@ -779,7 +788,7 @@ def main() -> int:
     batch_sizes = (
         list(args.batch_sizes)
         if args.batch_sizes is not None
-        else [int(row["batch_size"]) for row in frontier_rows]
+        else [int(row["batch_size"]) for row in profile_rows]
     )
     if args.max_batch_size is not None:
         batch_sizes = [bs for bs in batch_sizes if bs <= args.max_batch_size]
@@ -789,7 +798,7 @@ def main() -> int:
             args,
             batch_sizes=batch_sizes,
             policy_payload=policy_payload,
-            frontier_by_batch=frontier_by_batch,
+            profile_by_batch=profile_by_batch,
         )
 
     summary: dict[str, Any] = {
@@ -798,7 +807,7 @@ def main() -> int:
                 "Decode throughput validation for rollout/impl_v0 with BF16 and "
                 "INT4 weights colocated in VRAM."
             ),
-            "frontier_json": str(args.frontier_json),
+            "policy_source_json": str(args.policy_source_json),
             "precision_policy_path": str(args.precision_policy_path),
             "old_client": str(OLD_CLIENT),
             "batch_sizes_requested": batch_sizes,
@@ -808,6 +817,7 @@ def main() -> int:
             "tp_size": args.tp_size,
             "mem_fraction_static": args.mem_fraction_static,
             "flip_twostream": args.flip_twostream,
+            "reserve_sms": args.reserve_sms,
             "stop_policy": (
                 "continue after failure"
                 if args.continue_after_failure
@@ -819,8 +829,8 @@ def main() -> int:
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     for batch_size in batch_sizes:
-        if batch_size not in frontier_by_batch:
-            raise KeyError(f"No old frontier row for batch size {batch_size}")
+        if batch_size not in profile_by_batch:
+            raise KeyError(f"No policy-source row for batch size {batch_size}")
         policy = policy_payload["batch_sizes"][str(batch_size)]
         print(
             json.dumps(
@@ -836,7 +846,7 @@ def main() -> int:
             args,
             batch_size=batch_size,
             policy=policy,
-            frontier_row=frontier_by_batch[batch_size],
+            profile_row=profile_by_batch[batch_size],
         )
         summary["rows"].append(row)
         write_summary(args.out_dir, summary)
@@ -849,8 +859,10 @@ def main() -> int:
                     "measured_full_decode_tok_s": row.get(
                         "measured_full_decode_tok_s"
                     ),
-                    "old_frontier_tok_s": row.get("old_frontier_tok_s"),
-                    "ratio": row.get("measured_vs_old_frontier_ratio"),
+                    "old_bf16_merged_tok_s": row.get("old_bf16_merged_tok_s"),
+                    "measured_vs_old_bf16_ratio": row.get(
+                        "measured_vs_old_bf16_ratio"
+                    ),
                     "error": row.get("error"),
                 }
             ),

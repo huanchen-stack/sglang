@@ -1,0 +1,332 @@
+{
+  "metadata": {
+    "description": "Decode throughput validation for rollout/impl_v0 with BF16 and INT4 weights colocated in VRAM.",
+    "precision_policy_path": "/data/huanchen/sglang/.rollout-impl-v0/decoding-throughput/rollout_precision_policy.json",
+    "old_client": "/data/huanchen/sglang/.rollout-profile/qlora-decoding-throughput/decoding_client.py",
+    "batch_sizes_requested": [
+      4
+    ],
+    "decode_tokens": 256,
+    "warmup_batches": 1,
+    "gpu": "1",
+    "tp_size": 1,
+    "mem_fraction_static": 0.88,
+    "flip_twostream": true,
+    "stop_policy": "stop at first failed batch",
+    "policy_source_json": "/data/huanchen/sglang/.rollout-impl-v0/decoding-throughput/rollout_policy_source.json",
+    "baseline_note": "BF16 decode throughput from the old profile is the only comparison baseline used. Old mixed/kernel-guided throughput values are omitted because their CUDA graph path did not include LoRA."
+  },
+  "rows": [
+    {
+      "batch_size": 4,
+      "success": true,
+      "policy": {
+        "qkv": "int4+torch2s",
+        "o": "int4+torch2s",
+        "up": "int4+torch2s",
+        "down": "int4+torch2s"
+      },
+      "server_cmd": [
+        "/data/huanchen/miniforge3/envs/sglang/bin/python",
+        "-m",
+        "sglang.launch_server",
+        "--model-path",
+        "Qwen/Qwen2.5-14B-Instruct",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "30121",
+        "--lora-paths",
+        "default=/data/huanchen/._delete/adapters/qwen2.5-14b_rank16_zero_bf16",
+        "--rollout-weight-colocation-int4-model-path",
+        "Qwen/Qwen2.5-14B-Instruct-GPTQ-Int4",
+        "--rollout-weight-colocation-precision-policy-path",
+        "/data/huanchen/sglang/.rollout-impl-v0/decoding-throughput/rollout_precision_policy.json",
+        "--cuda-graph-bs",
+        "4",
+        "--cuda-graph-max-bs",
+        "4",
+        "--tp-size",
+        "1",
+        "--mem-fraction-static",
+        "0.88",
+        "--max-running-requests",
+        "4",
+        "--attention-backend",
+        "triton",
+        "--disable-radix-cache",
+        "--enable-torch-compile",
+        "--torch-compile-max-bs",
+        "4",
+        "--max-lora-rank",
+        "16",
+        "--max-loras-per-batch",
+        "1"
+      ],
+      "client_json": ".rollout-impl-v0/decoding-throughput/results/qwen2.5-14b-tp1-colocated-flipped/jobs/bs4/rollout_colocated_decode.bs4.json",
+      "server_log": ".rollout-impl-v0/decoding-throughput/results/qwen2.5-14b-tp1-colocated-flipped/jobs/bs4/rollout_colocated_decode.bs4.server.log",
+      "elapsed_wall_s": 190.66399403335527,
+      "vram": {
+        "before_launch": [
+          {
+            "gpu": 0,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 1,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 2,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 3,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 4,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 5,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 6,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 7,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          }
+        ],
+        "after_ready": [
+          {
+            "gpu": 0,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 1,
+            "memory_used_mib": 71688,
+            "memory_free_mib": 9466,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 2,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 3,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 4,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 5,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 6,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 7,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          }
+        ],
+        "after_client": [
+          {
+            "gpu": 0,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 1,
+            "memory_used_mib": 71688,
+            "memory_free_mib": 9466,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 2,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 3,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 4,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 5,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 6,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 7,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          }
+        ],
+        "after_shutdown": [
+          {
+            "gpu": 0,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 1,
+            "memory_used_mib": 71688,
+            "memory_free_mib": 9466,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 2,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 3,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 4,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 5,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 6,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          },
+          {
+            "gpu": 7,
+            "memory_used_mib": 0,
+            "memory_free_mib": 81153,
+            "memory_total_mib": 81920
+          }
+        ]
+      },
+      "client_summary": {
+        "success": true,
+        "batch_size": 4,
+        "decode_tokens_per_request": 256,
+        "completed_requests": 4,
+        "first_decode_start_s": 3937856.790193946,
+        "all_started_decode_start_s": 3937856.79037534,
+        "decode_start_s": 3937856.790193946,
+        "decode_end_s": 3937859.464944805,
+        "decode_time_s": 2.6747508589178324,
+        "decode_tok_s": 382.8393947742469,
+        "full_decode_time_s": 2.6747508589178324,
+        "full_decode_tok_s": 382.8393947742469,
+        "all_started_decode_time_s": 2.6745694652199745,
+        "all_started_decode_tok_s": 381.74368371323123,
+        "tokens_after_all_started": 1021,
+        "observed_tokens": 1024,
+        "first_token_spread_s": 0.00018139369785785675,
+        "mean_request_latency_s": 2.713825417100452,
+        "median_request_latency_s": 2.7138040789868683,
+        "min_output_len": 256,
+        "max_output_len": 256,
+        "prefill_excluded": true,
+        "global_decode_window": "min(first_token_time) to max(last_token_time)",
+        "all_started_decode_window": "max(first_token_time) to max(last_token_time)"
+      },
+      "measured_full_decode_tok_s": 382.8393947742469,
+      "measured_all_started_decode_tok_s": 381.74368371323123,
+      "old_bf16_merged_tok_s": 182.8275923327416,
+      "log_checks": {
+        "loaded_int4_shadow": true,
+        "attached_shadow_layers": true,
+        "saw_bf16_prefill_path": true,
+        "captured_requested_cuda_graph_bs": true,
+        "used_cuda_graph_decode": true,
+        "projection_paths": {
+          "qkv": {
+            "precision": "int4+torch2s",
+            "expected_path": "int4_decode",
+            "saw_expected_path": true
+          },
+          "o": {
+            "precision": "int4+torch2s",
+            "expected_path": "int4_decode",
+            "saw_expected_path": true
+          },
+          "up": {
+            "precision": "int4+torch2s",
+            "expected_path": "int4_decode",
+            "saw_expected_path": true
+          },
+          "down": {
+            "precision": "int4+torch2s",
+            "expected_path": "int4_decode",
+            "saw_expected_path": true
+          }
+        }
+      },
+      "measured_vs_old_bf16_ratio": 2.0939913384490065
+    }
+  ]
+}

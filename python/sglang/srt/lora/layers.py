@@ -41,6 +41,10 @@ class BaseLayerWithLoRA(nn.Module):
         Tuple[int, int, Tuple[int, ...], float, Tuple[int, ...], Tuple[int, ...]],
         Callable,
     ] = {}
+    _rollout_direct_lora_staged_patch_cache: Dict[
+        Tuple[int, int, Tuple[int, ...], float, Tuple[int, ...], Tuple[int, ...]],
+        Tuple[Callable, Callable],
+    ] = {}
 
     def __init__(
         self,
@@ -411,6 +415,64 @@ class BaseLayerWithLoRA(nn.Module):
         self._rollout_direct_lora_patch_cache[key] = patch
         return patch
 
+    def _get_rollout_direct_lora_staged_patches(
+        self,
+        *,
+        n_slices: int,
+        rank: int,
+        output_offsets: Tuple[int, ...],
+        scaling: float,
+        A_shape: Tuple[int, ...],
+        B_shape: Tuple[int, ...],
+    ) -> Tuple[Callable, Callable]:
+        key = (n_slices, rank, output_offsets, scaling, A_shape, B_shape)
+        patches = self._rollout_direct_lora_staged_patch_cache.get(key)
+        if patches is not None:
+            return patches
+
+        def direct_lora_a_patch(x: torch.Tensor, A: torch.Tensor) -> torch.Tensor:
+            return torch.matmul(x, A.transpose(0, 1))
+
+        if n_slices == 1:
+
+            def direct_lora_b_patch(
+                lora_a_output: torch.Tensor, B: torch.Tensor
+            ) -> torch.Tensor:
+                lora_output = torch.matmul(lora_a_output, B.transpose(0, 1))
+                if scaling != 1.0:
+                    lora_output = lora_output * scaling
+                return lora_output
+
+        else:
+            offsets = output_offsets
+
+            def direct_lora_b_patch(
+                lora_a_output: torch.Tensor, B: torch.Tensor
+            ) -> torch.Tensor:
+                parts = []
+                for slice_idx in range(n_slices):
+                    out_start = offsets[slice_idx]
+                    out_end = offsets[slice_idx + 1]
+                    a_start = slice_idx * rank
+                    a_end = (slice_idx + 1) * rank
+                    parts.append(
+                        torch.matmul(
+                            lora_a_output[:, a_start:a_end],
+                            B[out_start:out_end, :].transpose(0, 1),
+                        )
+                    )
+                lora_output = torch.cat(parts, dim=-1)
+                if scaling != 1.0:
+                    lora_output = lora_output * scaling
+                return lora_output
+
+        patches = (
+            torch.compile(direct_lora_a_patch, fullgraph=False),
+            torch.compile(direct_lora_b_patch, fullgraph=False),
+        )
+        self._rollout_direct_lora_staged_patch_cache[key] = patches
+        return patches
+
     def _prepare_rollout_direct_lora(
         self,
         A_buffer: torch.Tensor,
@@ -447,6 +509,42 @@ class BaseLayerWithLoRA(nn.Module):
         )
         return patch, A, B
 
+    def _prepare_rollout_direct_lora_staged(
+        self,
+        A_buffer: torch.Tensor,
+        B_buffer: torch.Tensor,
+        *,
+        n_slices: int = 1,
+        output_offset_cpu: Optional[torch.Tensor] = None,
+    ) -> Optional[Tuple[Callable, Callable, torch.Tensor, torch.Tensor]]:
+        meta = self._rollout_direct_lora_meta()
+        if meta is None:
+            return None
+
+        lora_idx, rank, scaling = meta
+        if n_slices == 1:
+            output_offsets = (0, int(B_buffer.shape[-2]))
+        else:
+            if output_offset_cpu is None:
+                raise RuntimeError(
+                    "Rollout direct LoRA needs output offsets for stacked projections."
+                )
+            output_offsets = tuple(
+                int(output_offset_cpu[i]) for i in range(n_slices + 1)
+            )
+
+        A = A_buffer[lora_idx, : n_slices * rank, :]
+        B = B_buffer[lora_idx, : output_offsets[-1], :rank]
+        lora_a_patch, lora_b_patch = self._get_rollout_direct_lora_staged_patches(
+            n_slices=n_slices,
+            rank=rank,
+            output_offsets=output_offsets,
+            scaling=scaling,
+            A_shape=tuple(A.shape),
+            B_shape=tuple(B.shape),
+        )
+        return lora_a_patch, lora_b_patch, A, B
+
     def _run_prepared_rollout_direct_lora(
         self,
         base_output: Optional[torch.Tensor],
@@ -458,6 +556,22 @@ class BaseLayerWithLoRA(nn.Module):
         if base_output is None:
             return lora_output
         return base_output + lora_output
+
+    def _run_prepared_rollout_direct_lora_a(
+        self,
+        x: torch.Tensor,
+        prepared: Tuple[Callable, Callable, torch.Tensor, torch.Tensor],
+    ) -> torch.Tensor:
+        lora_a_patch, _, A, _ = prepared
+        return lora_a_patch(x, A)
+
+    def _run_prepared_rollout_direct_lora_b(
+        self,
+        lora_a_output: torch.Tensor,
+        prepared: Tuple[Callable, Callable, torch.Tensor, torch.Tensor],
+    ) -> torch.Tensor:
+        _, lora_b_patch, _, B = prepared
+        return lora_b_patch(lora_a_output, B)
 
     def _apply_rollout_direct_lora(
         self,
@@ -482,6 +596,11 @@ class BaseLayerWithLoRA(nn.Module):
     def _prepare_rollout_direct_lora_for_layer(
         self,
     ) -> Optional[Tuple[Callable, torch.Tensor, torch.Tensor]]:
+        return None
+
+    def _prepare_rollout_direct_lora_staged_for_layer(
+        self,
+    ) -> Optional[Tuple[Callable, Callable, torch.Tensor, torch.Tensor]]:
         return None
 
 
@@ -902,18 +1021,28 @@ class ColumnParallelLinearWithLoRA(BaseLayerWithLoRA):
     ) -> Optional[Tuple[Callable, torch.Tensor, torch.Tensor]]:
         return self._prepare_rollout_direct_lora(self.A_buffer, self.B_buffer)
 
+    def _prepare_rollout_direct_lora_staged_for_layer(
+        self,
+    ) -> Optional[Tuple[Callable, Callable, torch.Tensor, torch.Tensor]]:
+        return self._prepare_rollout_direct_lora_staged(self.A_buffer, self.B_buffer)
+
     def forward(self, input_: torch.Tensor):
         # duplicate the logic in ColumnParallelLinear
         bias = self.base_layer.bias if not self.base_layer.skip_bias_add else None
         lora_output = None
         prepared_rollout_lora = None
+        prepared_staged_rollout_lora = None
         two_stream = self._apply_lora_this_pass() and self._use_torch_twostream_lora(
             input_
         )
 
         if two_stream and self._rollout_flip_twostream:
             # FLIPPED: Marlin base on the side stream, LoRA patch on the main stream.
-            prepared_rollout_lora = self._prepare_rollout_direct_lora_for_layer()
+            prepared_staged_rollout_lora = (
+                self._prepare_rollout_direct_lora_staged_for_layer()
+            )
+            if prepared_staged_rollout_lora is None:
+                prepared_rollout_lora = self._prepare_rollout_direct_lora_for_layer()
             current_stream = torch.cuda.current_stream(input_.device)
             base_stream = self._get_lora_stream(input_.device)
             selected_base_layer = self._selected_base_layer()
@@ -926,6 +1055,16 @@ class ColumnParallelLinearWithLoRA(BaseLayerWithLoRA):
                 selected_base_layer, input_
             )
             base_stream.wait_stream(current_stream)
+            if prepared_staged_rollout_lora is not None:
+                lora_a_output = self._run_prepared_rollout_direct_lora_a(
+                    input_, prepared_staged_rollout_lora
+                )
+            elif prepared_rollout_lora is None:
+                lora_output = self.apply_lora(None, input_)
+            else:
+                lora_output = self._run_prepared_rollout_direct_lora(
+                    None, input_, prepared_rollout_lora
+                )
             with torch.cuda.stream(base_stream):
                 output_parallel, selected_base_layer = (
                     self._base_forward_with_preallocated_marlin(
@@ -935,11 +1074,9 @@ class ColumnParallelLinearWithLoRA(BaseLayerWithLoRA):
                         preallocated,
                     )
                 )
-            if prepared_rollout_lora is None:
-                lora_output = self.apply_lora(None, input_)
-            else:
-                lora_output = self._run_prepared_rollout_direct_lora(
-                    None, input_, prepared_rollout_lora
+            if prepared_staged_rollout_lora is not None:
+                lora_output = self._run_prepared_rollout_direct_lora_b(
+                    lora_a_output, prepared_staged_rollout_lora
                 )
             current_stream.wait_stream(base_stream)
             output_parallel = output_parallel + lora_output
@@ -980,9 +1117,11 @@ class ColumnParallelLinearWithLoRA(BaseLayerWithLoRA):
         return output, output_bias
 
     def slice_lora_a_weights(self, A: torch.Tensor, tp_rank: int):
+        # Column-parallel TP: every rank sees the full input, so shrink/A is replicated.
         return A
 
     def slice_lora_b_weights(self, B: torch.Tensor, tp_rank: int):
+        # Column-parallel TP: recover/B owns only this rank's output columns.
         shard_size = self.base_layer.output_partition_sizes[0]
         start_idx = tp_rank * shard_size
         end_idx = (tp_rank + 1) * shard_size
@@ -1098,10 +1237,23 @@ class MergedColumnParallelLinearWithLoRA(ColumnParallelLinearWithLoRA):
             output_offset_cpu=self.output_offset_cpu,
         )
 
+    def _prepare_rollout_direct_lora_staged_for_layer(
+        self,
+    ) -> Optional[Tuple[Callable, Callable, torch.Tensor, torch.Tensor]]:
+        lora_n_slices = self._get_lora_n_slices()
+        return self._prepare_rollout_direct_lora_staged(
+            self.A_buffer,
+            self.B_buffer,
+            n_slices=lora_n_slices,
+            output_offset_cpu=self.output_offset_cpu,
+        )
+
     def slice_lora_a_weights(self, A: torch.Tensor, tp_rank: int):
+        # Merged column-parallel TP (gate/up): shrink/A is replicated.
         return A
 
     def slice_lora_b_weights(self, B: torch.Tensor, tp_rank: int):
+        # Merged column-parallel TP (gate/up): recover/B is output-sliced per projection.
         partition_sizes = self.base_layer.output_partition_sizes
         output_sizes = self.base_layer.output_sizes
         slices = []
@@ -1188,10 +1340,22 @@ class QKVParallelLinearWithLoRA(ColumnParallelLinearWithLoRA):
             output_offset_cpu=self.output_offset_cpu,
         )
 
+    def _prepare_rollout_direct_lora_staged_for_layer(
+        self,
+    ) -> Optional[Tuple[Callable, Callable, torch.Tensor, torch.Tensor]]:
+        return self._prepare_rollout_direct_lora_staged(
+            self.A_buffer_qkv,
+            self.B_buffer_qkv,
+            n_slices=3,
+            output_offset_cpu=self.output_offset_cpu,
+        )
+
     def slice_lora_a_weights(self, A: torch.Tensor, tp_rank: int):
+        # QKV column-parallel TP: shrink/A is replicated.
         return A
 
     def slice_lora_b_weights(self, B: torch.Tensor, tp_rank: int) -> torch.Tensor:
+        # QKV column-parallel TP: recover/B is output-sliced for q/k/v shards.
         base_layer = self.base_layer
         q_proj_shard_size = base_layer.q_proj_shard_size
         kv_proj_shard_size = base_layer.kv_proj_shard_size
@@ -1293,15 +1457,12 @@ class RowParallelLinearWithLoRA(BaseLayerWithLoRA):
             and not skip_all_reduce
         )
 
-        two_stream = (
-            self._apply_lora_this_pass()
-            and not should_reduce
-            and self._use_torch_twostream_lora(input_parallel)
+        two_stream = self._apply_lora_this_pass() and self._use_torch_twostream_lora(
+            input_parallel
         )
 
         if two_stream and self._rollout_flip_twostream:
             # FLIPPED: Marlin base on the side stream, LoRA patch on the main stream.
-            prepared_rollout_lora = self._prepare_rollout_direct_lora_for_layer()
             current_stream = torch.cuda.current_stream(input_parallel.device)
             base_stream = self._get_lora_stream(input_parallel.device)
             selected_base_layer = self._selected_base_layer()
@@ -1321,6 +1482,32 @@ class RowParallelLinearWithLoRA(BaseLayerWithLoRA):
                 selected_base_layer, input_parallel
             )
             base_stream.wait_stream(current_stream)
+
+            if should_reduce:
+                # Row-parallel TP keeps SGLang's default LoRA split:
+                # shrink/A is input-sharded, recover/B is replicated. The
+                # LoRA stream owns its shrink all-reduce, while the base stream
+                # owns the row output all-reduce.
+                lora_a_output = self.lora_backend.run_lora_a_sgemm(
+                    input_parallel, self.A_buffer
+                )
+                lora_a_output = tensor_model_parallel_all_reduce(lora_a_output)
+                lora_output_parallel = self.lora_backend.run_lora_b_sgemm(
+                    x=lora_a_output,
+                    weights=self.B_buffer,
+                    output_offset=self.output_offset,
+                    output_offset_cpu=self.output_offset_cpu,
+                    base_output=None,
+                )
+            else:
+                prepared_rollout_lora = self._prepare_rollout_direct_lora_for_layer()
+                if prepared_rollout_lora is None:
+                    lora_output_parallel = self.apply_lora(None, input_parallel)
+                else:
+                    lora_output_parallel = self._run_prepared_rollout_direct_lora(
+                        None, input_parallel, prepared_rollout_lora
+                    )
+
             with torch.cuda.stream(base_stream):
                 output_parallel, selected_base_layer = (
                     self._base_forward_with_preallocated_marlin(
@@ -1330,12 +1517,9 @@ class RowParallelLinearWithLoRA(BaseLayerWithLoRA):
                         preallocated,
                     )
                 )
-            if prepared_rollout_lora is None:
-                lora_output_parallel = self.apply_lora(None, input_parallel)
-            else:
-                lora_output_parallel = self._run_prepared_rollout_direct_lora(
-                    None, input_parallel, prepared_rollout_lora
-                )
+                if should_reduce:
+                    base_stream.wait_stream(current_stream)
+                    output_parallel = tensor_model_parallel_all_reduce(output_parallel)
             current_stream.wait_stream(base_stream)
             output_ = output_parallel + lora_output_parallel
             output_bias = (
@@ -1345,7 +1529,7 @@ class RowParallelLinearWithLoRA(BaseLayerWithLoRA):
             )
             return output_, output_bias
 
-        if two_stream:
+        if two_stream and not should_reduce:
             prepared_rollout_lora = self._prepare_rollout_direct_lora_for_layer()
             current_stream = torch.cuda.current_stream(input_parallel.device)
             lora_stream = self._get_lora_stream(input_parallel.device)
@@ -1397,6 +1581,7 @@ class RowParallelLinearWithLoRA(BaseLayerWithLoRA):
         return output_, output_bias
 
     def slice_lora_a_weights(self, A: torch.Tensor, tp_rank: int):
+        # Row-parallel TP: shrink/A follows this rank's input shard.
         shard_size = self.base_layer.input_size_per_partition
         start_idx = tp_rank * shard_size
         end_idx = (tp_rank + 1) * shard_size
@@ -1404,6 +1589,7 @@ class RowParallelLinearWithLoRA(BaseLayerWithLoRA):
         return A
 
     def slice_lora_b_weights(self, B: torch.Tensor, tp_rank: int):
+        # Row-parallel TP: recover/B is replicated; SGLang reduces shrink output first.
         return B
 
 

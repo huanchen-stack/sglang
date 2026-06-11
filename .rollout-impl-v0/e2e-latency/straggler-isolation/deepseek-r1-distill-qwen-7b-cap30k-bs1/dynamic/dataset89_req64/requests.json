@@ -1,0 +1,38 @@
+{
+  "metadata": {
+    "base_url": "http://127.0.0.1:31730",
+    "dataset_path": "/data/huanchen/sglang/.rollout-impl-v0/e2e-latency/straggler-isolation/deepseek-r1-distill-qwen-7b-cap30k-bs1/requests/dataset89_req64.jsonl",
+    "batch_size": 1,
+    "max_new_tokens": 30000,
+    "temperature": 0.9,
+    "top_p": 0.95,
+    "top_k": 20,
+    "stream_interval": 64,
+    "stream_idle_timeout_s": 300.0,
+    "ignore_eos": false,
+    "lora_path": "default",
+    "seed_base": 12345,
+    "wall_start_s": 3935099.554847902,
+    "wall_end_s": 3935213.847154155,
+    "wall_time_s": 114.29230625275522
+  },
+  "requests": [
+    {
+      "request_id": 0,
+      "dataset_index": 89,
+      "sample_position": null,
+      "success": true,
+      "prompt": "<|im_start|>system\nWhen tackling complex reasoning tasks, you have access to the following actions. Use them as needed to progress through your thought process.\n\n[ASSESS]\n\n[ADVANCE]\n\n[VERIFY]\n\n[SIMPLIFY]\n\n[SYNTHESIZE]\n\n[PIVOT]\n\n[OUTPUT]\n\nYou should strictly follow the format below:\n\n[ACTION NAME]\n\n# Your action step 1\n\n# Your action step 2\n\n# Your action step 3\n\n...\n\nNext action: [NEXT ACTION NAME]<|im_end|>\n<|im_start|>user\nFind the $\\emph{positive}$ real number(s) $x$ such that $\\frac{3}{5}\\left( 2x^2-2 \\right) = \\left( x^2 - 40x - 8 \\right)\\left( x^2 + 20x + 4 \\right)$.\n\nPresent the answer in LaTex format: \\boxed{Your answer}<|im_end|>\n<|im_start|>assistant",
+      "start_s": 3935099.555196841,
+      "end_s": 3935213.846774255,
+      "first_token_s": 3935100.01317498,
+      "last_token_s": 3935213.846149729,
+      "output_len": 17293,
+      "finish_reason": {
+        "type": "stop",
+        "matched": 151643
+      },
+      "error": null
+    }
+  ]
+}

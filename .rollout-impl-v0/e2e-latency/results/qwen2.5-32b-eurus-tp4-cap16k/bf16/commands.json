@@ -1,0 +1,32 @@
+{
+  "server_cmd": [
+    "/data/huanchen/miniforge3/envs/sglang/bin/python",
+    "-m",
+    "sglang.launch_server",
+    "--model-path",
+    "Qwen/Qwen2.5-32B-Instruct",
+    "--served-model-name",
+    "qwen2.5-14b-bf16-e2e",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "31600",
+    "--tp-size",
+    "4",
+    "--dtype",
+    "bfloat16",
+    "--max-running-requests",
+    "128",
+    "--cuda-graph-bs",
+    "128",
+    "--cuda-graph-max-bs",
+    "128",
+    "--context-length",
+    "20000",
+    "--attention-backend",
+    "triton",
+    "--enable-torch-compile",
+    "--torch-compile-max-bs",
+    "128"
+  ]
+}

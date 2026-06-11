@@ -1,0 +1,16 @@
+results/**
+!results/
+!results/**/
+!results/**/README.md
+!results/**/summary.json
+!results/**/search_summary.json
+!results/**/comparison.png
+!results/**/lifecycle.png
+!results/**/lifecycle.json
+!results/**/selected_requests.jsonl
+!results/**/requests.json
+!results/**/commands.json
+!results/**/server.log
+!results/**/timeline_sampled.csv
+!results/**/timeline_events.csv
+!results/**/token_events.csv

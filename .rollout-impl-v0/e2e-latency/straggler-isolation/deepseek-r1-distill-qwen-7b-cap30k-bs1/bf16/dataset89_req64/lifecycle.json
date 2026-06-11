@@ -1,0 +1,51 @@
+{
+  "metadata": {
+    "base_url": "http://127.0.0.1:31720",
+    "dataset_path": "/data/huanchen/sglang/.rollout-impl-v0/e2e-latency/straggler-isolation/deepseek-r1-distill-qwen-7b-cap30k-bs1/requests/dataset89_req64.jsonl",
+    "batch_size": 1,
+    "max_new_tokens": 30000,
+    "temperature": 0.9,
+    "top_p": 0.95,
+    "top_k": 20,
+    "stream_interval": 64,
+    "stream_idle_timeout_s": 300.0,
+    "ignore_eos": false,
+    "lora_path": null,
+    "seed_base": 12345,
+    "wall_start_s": 3935099.554179135,
+    "wall_end_s": 3935225.249682997,
+    "wall_time_s": 125.69550386210904
+  },
+  "n": 1,
+  "t0_perf": 3935100.012208465,
+  "total_drain_s": 125.23622565995902,
+  "rel_finish": [
+    125.23622565995902
+  ],
+  "bin_labels": [
+    "1-0"
+  ],
+  "bin_durations_s": [
+    125.23622565995902
+  ],
+  "finish_reasons": {
+    "stop": 1
+  },
+  "output_len_mean": 21138.0,
+  "output_len_p50": 21138.0,
+  "output_len_p90": 21138.0,
+  "output_len_p99": 21138.0,
+  "output_len_max": 21138,
+  "first_token_spread_s": 0.0,
+  "peak_decoded_token_mass": 21138,
+  "peak_mean_decoded_len": 21138.0,
+  "total_observed_output_tokens": 21138,
+  "decode_output_tok_s": 168.78502916076238,
+  "timeline_sample_points": 1000,
+  "request_latency_p50_s": 125.6938977111131,
+  "request_latency_p90_s": 125.6938977111131,
+  "request_latency_p99_s": 125.6938977111131,
+  "ttft_p50_s": 0.45767205115407705,
+  "ttft_p90_s": 0.45767205115407705,
+  "ttft_p99_s": 0.45767205115407705
+}

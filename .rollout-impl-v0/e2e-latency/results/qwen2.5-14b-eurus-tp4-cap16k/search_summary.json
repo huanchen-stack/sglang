@@ -1,0 +1,143 @@
+{
+  "dataset_path": "/data/huanchen/sglang/.rollout-profile/request-lifetime-cot/datasets/eurus-2-rl-qwen2.5-14b-instruct.jsonl",
+  "ranking": "random",
+  "ranking_seed": 20260609,
+  "screen_caps": [
+    2048,
+    4096,
+    8192,
+    16000
+  ],
+  "min_verified_unique": 1,
+  "attempts": [
+    {
+      "pool": 2048,
+      "stages": [
+        {
+          "cap": 2048,
+          "input_size": 2048,
+          "survivor_count": 0,
+          "chunks": [
+            {
+              "chunk_id": 0,
+              "cap": 2048,
+              "input_size": 128,
+              "survivor_count": 0,
+              "survivor_indices": []
+            },
+            {
+              "chunk_id": 1,
+              "cap": 2048,
+              "input_size": 128,
+              "survivor_count": 0,
+              "survivor_indices": []
+            },
+            {
+              "chunk_id": 2,
+              "cap": 2048,
+              "input_size": 128,
+              "survivor_count": 0,
+              "survivor_indices": []
+            },
+            {
+              "chunk_id": 3,
+              "cap": 2048,
+              "input_size": 128,
+              "survivor_count": 0,
+              "survivor_indices": []
+            },
+            {
+              "chunk_id": 4,
+              "cap": 2048,
+              "input_size": 128,
+              "survivor_count": 0,
+              "survivor_indices": []
+            },
+            {
+              "chunk_id": 5,
+              "cap": 2048,
+              "input_size": 128,
+              "survivor_count": 0,
+              "survivor_indices": []
+            },
+            {
+              "chunk_id": 6,
+              "cap": 2048,
+              "input_size": 128,
+              "survivor_count": 0,
+              "survivor_indices": []
+            },
+            {
+              "chunk_id": 7,
+              "cap": 2048,
+              "input_size": 128,
+              "survivor_count": 0,
+              "survivor_indices": []
+            },
+            {
+              "chunk_id": 8,
+              "cap": 2048,
+              "input_size": 128,
+              "survivor_count": 0,
+              "survivor_indices": []
+            },
+            {
+              "chunk_id": 9,
+              "cap": 2048,
+              "input_size": 128,
+              "survivor_count": 0,
+              "survivor_indices": []
+            },
+            {
+              "chunk_id": 10,
+              "cap": 2048,
+              "input_size": 128,
+              "survivor_count": 0,
+              "survivor_indices": []
+            },
+            {
+              "chunk_id": 11,
+              "cap": 2048,
+              "input_size": 128,
+              "survivor_count": 0,
+              "survivor_indices": []
+            },
+            {
+              "chunk_id": 12,
+              "cap": 2048,
+              "input_size": 128,
+              "survivor_count": 0,
+              "survivor_indices": []
+            },
+            {
+              "chunk_id": 13,
+              "cap": 2048,
+              "input_size": 128,
+              "survivor_count": 0,
+              "survivor_indices": []
+            },
+            {
+              "chunk_id": 14,
+              "cap": 2048,
+              "input_size": 128,
+              "survivor_count": 0,
+              "survivor_indices": []
+            },
+            {
+              "chunk_id": 15,
+              "cap": 2048,
+              "input_size": 128,
+              "survivor_count": 0,
+              "survivor_indices": []
+            }
+          ]
+        }
+      ],
+      "verified_unique_count_after_cap": 0,
+      "verified_unique_indices_after_cap": [],
+      "final_verified_unique_count": 0,
+      "final_verified_unique_indices": []
+    }
+  ],
+  "best_verified_unique_count": 0
+}
