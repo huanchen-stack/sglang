@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import socket
 import statistics
@@ -70,6 +71,9 @@ class BenchmarkConfig:
     compile_mode: str
     two_stream_reserve_sms: int
     two_stream_layout: str
+    cache_mode: str
+    workspace_size: int
+    workspace_l2_factor: float
 
 
 @dataclass(frozen=True)
@@ -88,9 +92,16 @@ class Result:
     torch_compile: bool
     cuda_graph: bool
     l2_flush_mib: int
+    cache_mode: str
+    timing_source: str
     warmup_iters: int
     measure_iters: int
     attention_backend: str
+    workspace_size: int
+    workspace_slot_bytes: int
+    device_l2_bytes: int
+    mean_us: float
+    std_us: float
     median_us: float
     p20_us: float
     p80_us: float
@@ -313,13 +324,26 @@ def capture_cuda_graph(fn: Callable[[], object]):
 
     graph = torch.cuda.CUDAGraph()
     holder: dict[str, object] = {}
+    start_event = torch.cuda.Event(enable_timing=True, external=True)
+    end_event = torch.cuda.Event(enable_timing=True, external=True)
     torch.cuda.synchronize()
     with torch.cuda.graph(graph):
+        start_event.record()
         holder["out"] = fn()
-    return graph, holder
+        end_event.record()
+    return graph, holder, start_event, end_event
 
 
-def replay_and_measure(graph, *, flush_buffer, warmup_iters: int, measure_iters: int):
+def replay_and_measure(
+    graph,
+    *,
+    flush_buffer,
+    warmup_iters: int,
+    measure_iters: int,
+    start_event=None,
+    end_event=None,
+    timing_source: str = "replay",
+):
     import torch
 
     for _ in range(warmup_iters):
@@ -332,12 +356,60 @@ def replay_and_measure(graph, *, flush_buffer, warmup_iters: int, measure_iters:
     for i in range(measure_iters):
         if flush_buffer is not None:
             flush_buffer.fill_(i)
-        start.record()
-        graph.replay()
-        end.record()
-        end.synchronize()
-        timings.append(start.elapsed_time(end) * 1000.0)
+        if timing_source == "captured":
+            if start_event is None or end_event is None:
+                raise ValueError("Captured timing requires graph events")
+            graph.replay()
+            torch.cuda.synchronize()
+            timings.append(start_event.elapsed_time(end_event) * 1000.0)
+        else:
+            start.record()
+            graph.replay()
+            end.record()
+            end.synchronize()
+            timings.append(start.elapsed_time(end) * 1000.0)
     return timings
+
+
+def tensor_nbytes(tensor) -> int:
+    return int(tensor.numel() * tensor.element_size())
+
+
+def unique_tensor_nbytes(objects: list[object]) -> int:
+    import torch
+
+    seen: set[int] = set()
+    total = 0
+
+    def visit(obj: object) -> None:
+        nonlocal total
+        if obj is None:
+            return
+        if isinstance(obj, torch.Tensor):
+            ptr = obj.untyped_storage().data_ptr()
+            if ptr in seen:
+                return
+            seen.add(ptr)
+            total += tensor_nbytes(obj)
+            return
+        if isinstance(obj, dict):
+            for value in obj.values():
+                visit(value)
+            return
+        if isinstance(obj, (list, tuple, set)):
+            for value in obj:
+                visit(value)
+            return
+        if hasattr(obj, "parameters") and hasattr(obj, "buffers"):
+            for value in obj.parameters():
+                visit(value)
+            for value in obj.buffers():
+                visit(value)
+            return
+
+    for obj in objects:
+        visit(obj)
+    return total
 
 
 class DenseProjection:
@@ -914,9 +986,14 @@ class TransformerBlockBenchmark:
             device=self.device,
             dtype=torch.int64,
         )
+        device_props = torch.cuda.get_device_properties(self.device)
+        l2_cache_size = getattr(device_props, "l2_cache_size", None)
+        if l2_cache_size is None:
+            l2_cache_size = getattr(device_props, "L2_cache_size")
+        self.device_l2_bytes = int(l2_cache_size)
 
         self.flush_buffer = None
-        if bench_config.l2_flush_mib > 0:
+        if bench_config.cache_mode == "flush" and bench_config.l2_flush_mib > 0:
             elements = (
                 bench_config.l2_flush_mib
                 * 1024
@@ -1044,6 +1121,118 @@ class TransformerBlockBenchmark:
         q, k = self.rotary_emb(self.positions, q, k)
         return self.attn(q, k, v)
 
+    def scope_input_tensor(self):
+        if self.bench_config.scope == "o":
+            return self.o_inputs
+        if self.bench_config.scope == "down":
+            return self.down_inputs
+        return self.hidden_states
+
+    def scope_slot_bytes(self) -> int:
+        scope = self.bench_config.scope
+        objects: list[object] = []
+        if scope == "qkv":
+            objects.extend([self.hidden_states, self.projections["qkv"]])
+            if self.bench_config.precision == "qlora":
+                objects.append(self.column_lora_weights.get("qkv"))
+        elif scope == "o":
+            objects.extend([self.o_inputs, self.projections["o"]])
+            if self.bench_config.precision == "qlora":
+                objects.append(self.row_lora_weights.get("o"))
+        elif scope == "up":
+            objects.extend([self.hidden_states, self.projections["gate_up"]])
+            if self.bench_config.precision == "qlora":
+                objects.append(self.column_lora_weights.get("gate_up"))
+        elif scope == "down":
+            objects.extend([self.down_inputs, self.projections["down"]])
+            if self.bench_config.precision == "qlora":
+                objects.append(self.row_lora_weights.get("down"))
+        elif scope == "attn":
+            objects.extend(
+                [
+                    self.hidden_states,
+                    self.positions,
+                    self.input_layernorm,
+                    self.projections["qkv"],
+                    self.projections["o"],
+                    self.attn.key_cache,
+                    self.attn.value_cache,
+                    self.attn.req_to_token_pool.req_to_token,
+                    self.attn.forward_batch.input_ids,
+                    self.attn.forward_batch.req_pool_indices,
+                    self.attn.forward_batch.seq_lens,
+                    self.attn.forward_batch.out_cache_loc,
+                    self.attn.forward_batch.positions,
+                    self.attn.forward_batch.num_token_non_padded,
+                ]
+            )
+            if self.bench_config.precision == "qlora":
+                objects.extend(
+                    [
+                        self.column_lora_weights.get("qkv"),
+                        self.row_lora_weights.get("o"),
+                    ]
+                )
+        elif scope == "mlp":
+            objects.extend(
+                [
+                    self.hidden_states,
+                    self.residual_states,
+                    self.post_attention_layernorm,
+                    self.projections["gate_up"],
+                    self.projections["down"],
+                ]
+            )
+            if self.bench_config.precision == "qlora":
+                objects.extend(
+                    [
+                        self.column_lora_weights.get("gate_up"),
+                        self.row_lora_weights.get("down"),
+                    ]
+                )
+        elif scope == "block":
+            objects.extend(
+                [
+                    self.hidden_states,
+                    self.residual_states,
+                    self.positions,
+                    self.input_layernorm,
+                    self.post_attention_layernorm,
+                    self.projections["qkv"],
+                    self.projections["o"],
+                    self.projections["gate_up"],
+                    self.projections["down"],
+                    self.attn.key_cache,
+                    self.attn.value_cache,
+                    self.attn.req_to_token_pool.req_to_token,
+                    self.attn.forward_batch.input_ids,
+                    self.attn.forward_batch.req_pool_indices,
+                    self.attn.forward_batch.seq_lens,
+                    self.attn.forward_batch.out_cache_loc,
+                    self.attn.forward_batch.positions,
+                    self.attn.forward_batch.num_token_non_padded,
+                ]
+            )
+            if self.bench_config.precision == "qlora":
+                objects.extend(
+                    [
+                        self.column_lora_weights.get("qkv"),
+                        self.row_lora_weights.get("o"),
+                        self.column_lora_weights.get("gate_up"),
+                        self.row_lora_weights.get("down"),
+                    ]
+                )
+        else:
+            raise ValueError(f"Unsupported scope {scope!r}")
+        return unique_tensor_nbytes(objects)
+
+    def compute_workspace_size(self) -> int:
+        if self.bench_config.workspace_size > 0:
+            return self.bench_config.workspace_size
+        slot_bytes = max(1, self.scope_slot_bytes())
+        l2_target = max(1, math.ceil(self.device_l2_bytes * self.bench_config.workspace_l2_factor))
+        return max(2, 1 + math.ceil(l2_target / slot_bytes))
+
     def attn_core(self, x):
         qkv = self._run_projection("qkv", x)
         attn_out = (
@@ -1147,19 +1336,130 @@ class TransformerBlockBenchmark:
             )
         raise ValueError(f"Unsupported scope {scope!r}")
 
+    def result_from_timings(
+        self,
+        timings: list[float],
+        *,
+        timing_source: str,
+        workspace_size: int,
+        workspace_slot_bytes: int,
+    ) -> Result:
+        mean_us = statistics.fmean(timings)
+        std_us = statistics.pstdev(timings) if len(timings) > 1 else 0.0
+        return Result(
+            model=self.model_config.model,
+            tp_size=self.world_size,
+            precision=self.bench_config.precision,
+            scope=self.bench_config.scope,
+            batch_size=self.bench_config.batch_size,
+            kv_len=self.bench_config.kv_len,
+            hidden_size=self.model_config.hidden_size,
+            intermediate_size=self.model_config.intermediate_size,
+            num_attention_heads=self.model_config.num_attention_heads,
+            num_key_value_heads=self.model_config.num_key_value_heads,
+            head_dim=self.model_config.head_dim,
+            torch_compile=self.bench_config.torch_compile,
+            cuda_graph=self.bench_config.cuda_graph,
+            l2_flush_mib=self.bench_config.l2_flush_mib,
+            cache_mode=self.bench_config.cache_mode,
+            timing_source=timing_source,
+            warmup_iters=self.bench_config.warmup_iters,
+            measure_iters=self.bench_config.measure_iters,
+            attention_backend="torch_native",
+            workspace_size=workspace_size,
+            workspace_slot_bytes=workspace_slot_bytes,
+            device_l2_bytes=self.device_l2_bytes,
+            mean_us=mean_us,
+            std_us=std_us,
+            median_us=statistics.median(timings),
+            p20_us=percentile(timings, 0.2),
+            p80_us=percentile(timings, 0.8),
+            min_us=min(timings),
+            max_us=max(timings),
+        )
+
+    def measure_workspace(self, cuda_profiler_range: bool) -> Result:
+        import torch
+
+        workspace_size = self.compute_workspace_size()
+        workspace_slot_bytes = self.scope_slot_bytes()
+        benches = [self]
+        for _ in range(workspace_size - 1):
+            benches.append(type(self)(self.model_config, self.bench_config))
+
+        callables = [bench.scope_callable() for bench in benches]
+        for bench, fn in zip(benches, callables):
+            prewarm_activation(bench.scope_input_tensor(), fn)
+
+        graphs: list[object | None] = []
+        start_events: list[object | None] = []
+        end_events: list[object | None] = []
+        if self.bench_config.cuda_graph:
+            for fn in callables:
+                graph, _, start_event, end_event = capture_cuda_graph(fn)
+                graphs.append(graph)
+                start_events.append(start_event)
+                end_events.append(end_event)
+        else:
+            graphs = [None] * workspace_size
+            start_events = [None] * workspace_size
+            end_events = [None] * workspace_size
+
+        for i in range(self.bench_config.warmup_iters):
+            slot = i % workspace_size
+            if graphs[slot] is not None:
+                graphs[slot].replay()
+            else:
+                callables[slot]()
+        torch.cuda.synchronize()
+
+        if cuda_profiler_range:
+            torch.cuda.cudart().cudaProfilerStart()
+
+        timings: list[float] = []
+        try:
+            start = torch.cuda.Event(enable_timing=True)
+            end = torch.cuda.Event(enable_timing=True)
+            for i in range(self.bench_config.measure_iters):
+                slot = i % workspace_size
+                if graphs[slot] is not None:
+                    graphs[slot].replay()
+                    torch.cuda.synchronize()
+                    timings.append(start_events[slot].elapsed_time(end_events[slot]) * 1000.0)
+                else:
+                    start.record()
+                    callables[slot]()
+                    end.record()
+                    end.synchronize()
+                    timings.append(start.elapsed_time(end) * 1000.0)
+        finally:
+            if cuda_profiler_range:
+                torch.cuda.cudart().cudaProfilerStop()
+        return self.result_from_timings(
+            timings,
+            timing_source="captured" if self.bench_config.cuda_graph else "replay",
+            workspace_size=workspace_size,
+            workspace_slot_bytes=workspace_slot_bytes,
+        )
+
     def measure(self, cuda_profiler_range: bool) -> Result:
         import torch
 
+        if self.bench_config.cache_mode == "workspace":
+            return self.measure_workspace(cuda_profiler_range)
+
         fn = self.scope_callable()
-        prewarm_activation(self.hidden_states, fn)
+        prewarm_activation(self.scope_input_tensor(), fn)
 
         for _ in range(self.bench_config.warmup_iters):
             fn()
         torch.cuda.synchronize()
 
         graph = None
+        graph_start_event = None
+        graph_end_event = None
         if self.bench_config.cuda_graph:
-            graph, _ = capture_cuda_graph(fn)
+            graph, _, graph_start_event, graph_end_event = capture_cuda_graph(fn)
 
         if cuda_profiler_range:
             torch.cuda.cudart().cudaProfilerStart()
@@ -1171,6 +1471,9 @@ class TransformerBlockBenchmark:
                     flush_buffer=self.flush_buffer,
                     warmup_iters=self.bench_config.warmup_iters,
                     measure_iters=self.bench_config.measure_iters,
+                    start_event=graph_start_event,
+                    end_event=graph_end_event,
+                    timing_source="replay",
                 )
             else:
                 start = torch.cuda.Event(enable_timing=True)
@@ -1188,29 +1491,11 @@ class TransformerBlockBenchmark:
             if cuda_profiler_range:
                 torch.cuda.cudart().cudaProfilerStop()
 
-        return Result(
-            model=self.model_config.model,
-            tp_size=self.world_size,
-            precision=self.bench_config.precision,
-            scope=self.bench_config.scope,
-            batch_size=self.bench_config.batch_size,
-            kv_len=self.bench_config.kv_len,
-            hidden_size=self.model_config.hidden_size,
-            intermediate_size=self.model_config.intermediate_size,
-            num_attention_heads=self.model_config.num_attention_heads,
-            num_key_value_heads=self.model_config.num_key_value_heads,
-            head_dim=self.model_config.head_dim,
-            torch_compile=self.bench_config.torch_compile,
-            cuda_graph=self.bench_config.cuda_graph,
-            l2_flush_mib=self.bench_config.l2_flush_mib,
-            warmup_iters=self.bench_config.warmup_iters,
-            measure_iters=self.bench_config.measure_iters,
-            attention_backend="torch_native",
-            median_us=statistics.median(timings),
-            p20_us=percentile(timings, 0.2),
-            p80_us=percentile(timings, 0.8),
-            min_us=min(timings),
-            max_us=max(timings),
+        return self.result_from_timings(
+            timings,
+            timing_source="replay",
+            workspace_size=1,
+            workspace_slot_bytes=self.scope_slot_bytes(),
         )
 
 
@@ -1246,6 +1531,12 @@ def run_nsys_profile(args: argparse.Namespace) -> None:
         str(args.iters),
         "--l2-flush-mib",
         str(args.l2_flush_mib),
+        "--cache-mode",
+        args.cache_mode,
+        "--workspace-size",
+        str(args.workspace_size),
+        "--workspace-l2-factor",
+        str(args.workspace_l2_factor),
         "--two-stream-reserve-sms",
         str(args.two_stream_reserve_sms),
         "--two-stream-layout",
@@ -1296,6 +1587,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--warmup", type=int, default=5)
     parser.add_argument("--iters", type=int, default=10)
     parser.add_argument("--l2-flush-mib", type=int, default=96)
+    parser.add_argument("--cache-mode", choices=["flush", "workspace"], default="flush")
+    parser.add_argument("--workspace-size", type=int, default=0)
+    parser.add_argument("--workspace-l2-factor", type=float, default=1.0)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--no-cuda-graph", action="store_true")
     parser.add_argument("--no-torch-compile", action="store_true")
@@ -1329,6 +1623,9 @@ def main() -> None:
         compile_mode=args.compile_mode,
         two_stream_reserve_sms=args.two_stream_reserve_sms,
         two_stream_layout=args.two_stream_layout,
+        cache_mode=args.cache_mode,
+        workspace_size=args.workspace_size,
+        workspace_l2_factor=args.workspace_l2_factor,
     )
     bench = TransformerBlockBenchmark(model_config, bench_config)
     result = bench.measure(cuda_profiler_range=args.profile_nsys_internal)
