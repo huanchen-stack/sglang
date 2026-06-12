@@ -10,6 +10,8 @@ import socket
 import statistics
 import subprocess
 import sys
+import tempfile
+import uuid
 from contextlib import nullcontext
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -73,6 +75,7 @@ class BenchmarkConfig:
 @dataclass(frozen=True)
 class Result:
     model: str
+    tp_size: int
     precision: str
     scope: str
     batch_size: int
@@ -113,13 +116,23 @@ def ensure_single_rank_tp() -> None:
     rank = int(os.environ.get("RANK", "0"))
     local_rank = int(os.environ.get("LOCAL_RANK", str(rank)))
     if not torch.distributed.is_initialized():
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.bind(("127.0.0.1", 0))
-            port = sock.getsockname()[1]
+        if world_size == 1 and "MASTER_PORT" not in os.environ:
+            rendezvous_path = (
+                Path(tempfile.gettempdir()) / f"sglang-tp1-{uuid.uuid4().hex}.rdzv"
+            )
+            distributed_init_method = f"file://{rendezvous_path}"
+        else:
+            master_addr = os.environ.get("MASTER_ADDR", "127.0.0.1")
+            master_port = os.environ.get("MASTER_PORT")
+            if master_port is None:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                    sock.bind((master_addr, 0))
+                    master_port = str(sock.getsockname()[1])
+            distributed_init_method = f"tcp://{master_addr}:{master_port}"
         init_distributed_environment(
             world_size=world_size,
             rank=rank,
-            distributed_init_method=f"tcp://127.0.0.1:{port}",
+            distributed_init_method=distributed_init_method,
             local_rank=local_rank,
             backend="nccl",
         )
@@ -474,21 +487,23 @@ def make_column_lora_weights(
     *,
     rank: int,
     alpha: float,
+    tp_world_size: int,
     dtype,
     device,
 ):
     import torch
 
-    n_slices = len(projection.slice_sizes)
+    local_slice_sizes = tuple(size // tp_world_size for size in projection.slice_sizes)
+    n_slices = len(local_slice_sizes)
     return {
-        "slice_sizes": projection.slice_sizes,
+        "slice_sizes": local_slice_sizes,
         "rank": rank,
         "scaling": alpha / rank,
         "a": torch.randn(
             (n_slices * rank, projection.in_features), device=device, dtype=dtype
         ).contiguous(),
         "b": torch.randn(
-            (projection.out_features, rank), device=device, dtype=dtype
+            (sum(local_slice_sizes), rank), device=device, dtype=dtype
         ).contiguous(),
     }
 
@@ -607,12 +622,15 @@ class SyntheticTorchNativeAttnBackend:
 
 
 class SyntheticDecodeAttention:
-    def __init__(self, model_config: ModelConfig, batch_size: int, kv_len: int, dtype):
+    def __init__(self, attn_module, batch_size: int, kv_len: int, dtype):
         import torch
         from sglang.srt.layers.radix_attention import RadixAttention
         from sglang.srt.mem_cache.memory_pool import MHATokenToKVPool, ReqToTokenPool
         from sglang.srt.model_executor.forward_batch_info import ForwardBatch, ForwardMode
 
+        qk_head_dim = attn_module.head_dim
+        tp_q_head_num = attn_module.num_heads
+        tp_kv_head_num = attn_module.num_kv_heads
         total_tokens = batch_size * (kv_len + 1)
         self.req_to_token_pool = ReqToTokenPool(
             size=batch_size,
@@ -624,17 +642,17 @@ class SyntheticDecodeAttention:
             size=total_tokens,
             page_size=1,
             dtype=dtype,
-            head_num=model_config.num_key_value_heads,
-            head_dim=model_config.head_dim,
+            head_num=tp_kv_head_num,
+            head_dim=qk_head_dim,
             layer_num=1,
             device="cuda",
             enable_memory_saver=False,
         )
         self.attn_layer = RadixAttention(
-            num_heads=model_config.num_attention_heads,
-            head_dim=model_config.head_dim,
-            scaling=model_config.head_dim**-0.5,
-            num_kv_heads=model_config.num_key_value_heads,
+            num_heads=tp_q_head_num,
+            head_dim=qk_head_dim,
+            scaling=attn_module.scaling,
+            num_kv_heads=tp_kv_head_num,
             layer_id=0,
             quant_config=None,
             prefix="synthetic.attn",
@@ -652,8 +670,8 @@ class SyntheticDecodeAttention:
             (
                 batch_size,
                 kv_len + 1,
-                model_config.num_key_value_heads,
-                model_config.head_dim,
+                tp_kv_head_num,
+                qk_head_dim,
             ),
             device="cuda",
             dtype=dtype,
@@ -666,8 +684,8 @@ class SyntheticDecodeAttention:
             self.token_to_kv_pool.set_kv_buffer(
                 self.attn_layer,
                 token_slots[:, :-1].reshape(-1),
-                self.key_cache[:, :-1].reshape(-1, model_config.num_key_value_heads, model_config.head_dim),
-                self.value_cache[:, :-1].reshape(-1, model_config.num_key_value_heads, model_config.head_dim),
+                self.key_cache[:, :-1].reshape(-1, tp_kv_head_num, qk_head_dim),
+                self.value_cache[:, :-1].reshape(-1, tp_kv_head_num, qk_head_dim),
             )
 
         self.backend = SyntheticTorchNativeAttnBackend(
@@ -719,13 +737,13 @@ class TransformerBlockBenchmark:
             )
         )
 
-        torch.set_grad_enabled(False)
-        torch.cuda.set_device(0)
-        ensure_single_rank_tp()
         self.world_size = int(os.environ.get("WORLD_SIZE", "1"))
         self.rank = int(os.environ.get("RANK", "0"))
         self.local_rank = int(os.environ.get("LOCAL_RANK", str(self.rank)))
-        self.device = torch.device("cuda")
+        torch.set_grad_enabled(False)
+        torch.cuda.set_device(self.local_rank)
+        ensure_single_rank_tp()
+        self.device = torch.device("cuda", self.local_rank)
         self.dtype = dtype_from_name(model_config.dtype)
         self.model_config = model_config
         self.bench_config = bench_config
@@ -762,7 +780,7 @@ class TransformerBlockBenchmark:
             module.to(dtype=self.dtype)
 
         self.attn = SyntheticDecodeAttention(
-            model_config,
+            self.layer.self_attn,
             batch_size=bench_config.batch_size,
             kv_len=bench_config.kv_len,
             dtype=self.dtype,
@@ -842,6 +860,7 @@ class TransformerBlockBenchmark:
                         projection,
                         rank=model_config.lora_rank,
                         alpha=model_config.lora_alpha,
+                        tp_world_size=self.world_size,
                         dtype=self.dtype,
                         device=self.device,
                     )
@@ -879,8 +898,13 @@ class TransformerBlockBenchmark:
             dtype=self.dtype,
         ).contiguous()
         self.residual_states = torch.randn_like(self.hidden_states)
-        self.mlp_inputs = torch.randn(
-            (bench_config.batch_size, model_config.intermediate_size),
+        self.o_inputs = torch.randn(
+            (bench_config.batch_size, model_config.hidden_size // self.world_size),
+            device=self.device,
+            dtype=self.dtype,
+        ).contiguous()
+        self.down_inputs = torch.randn(
+            (bench_config.batch_size, model_config.intermediate_size // self.world_size),
             device=self.device,
             dtype=self.dtype,
         ).contiguous()
@@ -1080,7 +1104,7 @@ class TransformerBlockBenchmark:
                 else raw
             )
         if scope == "o":
-            raw = lambda: self.o_only(self.hidden_states)
+            raw = lambda: self.o_only(self.o_inputs)
             return (
                 compile_callable(raw, self.bench_config.torch_compile, self.bench_config.compile_mode)
                 if self.bench_config.precision != "qlora"
@@ -1094,7 +1118,7 @@ class TransformerBlockBenchmark:
                 else raw
             )
         if scope == "down":
-            raw = lambda: self.down_only(self.mlp_inputs)
+            raw = lambda: self.down_only(self.down_inputs)
             return (
                 compile_callable(raw, self.bench_config.torch_compile, self.bench_config.compile_mode)
                 if self.bench_config.precision != "qlora"
@@ -1166,6 +1190,7 @@ class TransformerBlockBenchmark:
 
         return Result(
             model=self.model_config.model,
+            tp_size=self.world_size,
             precision=self.bench_config.precision,
             scope=self.bench_config.scope,
             batch_size=self.bench_config.batch_size,
@@ -1283,6 +1308,8 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    import torch
+
     args = parse_args()
     if args.profile_nsys and not args.profile_nsys_internal:
         run_nsys_profile(args)
@@ -1305,8 +1332,13 @@ def main() -> None:
     )
     bench = TransformerBlockBenchmark(model_config, bench_config)
     result = bench.measure(cuda_profiler_range=args.profile_nsys_internal)
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(asdict(result), indent=2) + "\n", encoding="utf-8")
+    rank = int(os.environ.get("RANK", "0"))
+    if rank == 0:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(json.dumps(asdict(result), indent=2) + "\n", encoding="utf-8")
+    if torch.distributed.is_initialized():
+        torch.distributed.barrier()
+        torch.distributed.destroy_process_group()
 
 
 if __name__ == "__main__":
