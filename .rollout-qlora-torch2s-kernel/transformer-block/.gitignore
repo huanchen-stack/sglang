@@ -1,3 +1,8 @@
 __pycache__/
 nsys/
 nsys-smoke/
+latency-results/
+latency-results-dynamic-precision/tables_wrapper.aux
+latency-results-dynamic-precision/tables_wrapper.tex
+latency-results-tpdp-switch/tables_wrapper.aux
+latency-results-tpdp-switch/tables_wrapper.tex

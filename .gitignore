@@ -190,6 +190,7 @@ tl_out/
 # personnal
 work_dirs/
 *.csv
+.rollout-parallelism/
 
 !logo.png
 !docs_new/images/*.png
