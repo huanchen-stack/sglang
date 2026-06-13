@@ -28,6 +28,8 @@ KV_LEN = 1024
 WARMUP = 10
 ITERS = 30
 L2_FLUSH_MIB = 96
+TP1_GPUS = ("4", "5")
+TP4_VISIBLE_DEVICES = "0,1,2,3"
 GROUPS = [
     ("core", ("block", "attn", "mlp")),
     ("attn_kernels", ("attn", "qkv", "o")),
@@ -177,9 +179,7 @@ def run_job(job: Job, output_root: Path) -> None:
         gpu = threading.current_thread().name.rsplit("-", 1)[-1]
         env["CUDA_VISIBLE_DEVICES"] = gpu
     else:
-        group = threading.current_thread().name.rsplit("-", 1)[-1]
-        visible = "0,1,2,3" if group == "0" else "4,5,6,7"
-        env["CUDA_VISIBLE_DEVICES"] = visible
+        env["CUDA_VISIBLE_DEVICES"] = TP4_VISIBLE_DEVICES
         cmd = [
             str(TORCHRUN),
             "--standalone",
@@ -199,7 +199,13 @@ def run_job(job: Job, output_root: Path) -> None:
         )
 
 
-def drain_jobs(label: str, jobs: list[Job], worker_count: int, output_root: Path, force: bool) -> None:
+def drain_jobs(
+    label: str,
+    jobs: list[Job],
+    worker_names: list[str],
+    output_root: Path,
+    force: bool,
+) -> None:
     pending = queue.Queue()
     runnable: list[Job] = []
     for job in jobs:
@@ -247,8 +253,8 @@ def drain_jobs(label: str, jobs: list[Job], worker_count: int, output_root: Path
                 pending.task_done()
 
     threads = [
-        threading.Thread(target=worker, name=f"{label}-worker-{idx}", daemon=True)
-        for idx in range(worker_count)
+        threading.Thread(target=worker, name=f"{label}-worker-{name}", daemon=True)
+        for name in worker_names
     ]
     for thread in threads:
         thread.start()
@@ -357,8 +363,40 @@ def main() -> None:
         tp4_jobs = [job for job in jobs if job.setup.tp_size == 4]
         tp1_jobs = [job for job in jobs if job.setup.tp_size == 1]
         start = time.time()
-        drain_jobs("tp4", tp4_jobs, worker_count=2, output_root=output_root, force=args.force)
-        drain_jobs("tp1", tp1_jobs, worker_count=8, output_root=output_root, force=args.force)
+        errors: list[BaseException] = []
+
+        def _run(label: str, run_jobs: list[Job], worker_names: list[str]) -> None:
+            try:
+                drain_jobs(
+                    label,
+                    run_jobs,
+                    worker_names=worker_names,
+                    output_root=output_root,
+                    force=args.force,
+                )
+            except BaseException as exc:  # noqa: BLE001
+                errors.append(exc)
+
+        threads = [
+            threading.Thread(
+                target=_run,
+                args=("tp4", tp4_jobs, ["0"]),
+                name="dispatch-tp4",
+                daemon=True,
+            ),
+            threading.Thread(
+                target=_run,
+                args=("tp1", tp1_jobs, list(TP1_GPUS)),
+                name="dispatch-tp1",
+                daemon=True,
+            ),
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        if errors:
+            raise RuntimeError(str(errors[0]))
         print(f"all runs complete in {time.time() - start:.1f}s", flush=True)
 
     render_tables(setups, output_root, args.tables_output)

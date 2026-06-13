@@ -1,0 +1,83 @@
+{
+  "name": "qwen2.5-32b",
+  "model_label": "Qwen2.5 32B, TP1",
+  "source_model": "qwen2.5-32b",
+  "tp_size": 1,
+  "kv_len": 1024,
+  "scope": "block",
+  "notes": [
+    "Mixed-precision block policy for TP1 decode benchmarking.",
+    "Only qkv/o/up/down are dynamically assigned.",
+    "Norms, RoPE, attention core, residual adds, and activations remain on the default dense path."
+  ],
+  "dynamic_components": [
+    "qkv",
+    "o",
+    "up",
+    "down"
+  ],
+  "static_components": {
+    "input_layernorm": "bf16",
+    "post_attention_layernorm": "bf16",
+    "attention_core": "bf16",
+    "rope": "bf16",
+    "silu_and_mul": "bf16",
+    "residual": "bf16"
+  },
+  "projection_precision_by_batch": {
+    "1": {
+      "qkv": "qlora",
+      "o": "qlora",
+      "up": "qlora",
+      "down": "qlora"
+    },
+    "4": {
+      "qkv": "qlora",
+      "o": "qlora",
+      "up": "qlora",
+      "down": "qlora"
+    },
+    "8": {
+      "qkv": "qlora",
+      "o": "qlora",
+      "up": "qlora",
+      "down": "qlora"
+    },
+    "16": {
+      "qkv": "qlora",
+      "o": "qlora",
+      "up": "qlora",
+      "down": "qlora"
+    },
+    "32": {
+      "qkv": "qlora",
+      "o": "qlora",
+      "up": "qlora",
+      "down": "qlora"
+    },
+    "64": {
+      "qkv": "bf16",
+      "o": "bf16",
+      "up": "qlora",
+      "down": "qlora"
+    },
+    "128": {
+      "qkv": "bf16",
+      "o": "bf16",
+      "up": "bf16",
+      "down": "bf16"
+    },
+    "256": {
+      "qkv": "bf16",
+      "o": "bf16",
+      "up": "bf16",
+      "down": "bf16"
+    },
+    "512": {
+      "qkv": "bf16",
+      "o": "bf16",
+      "up": "bf16",
+      "down": "bf16"
+    }
+  }
+}

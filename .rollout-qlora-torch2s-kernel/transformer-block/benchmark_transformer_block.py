@@ -74,6 +74,8 @@ class BenchmarkConfig:
     cache_mode: str
     workspace_size: int
     workspace_l2_factor: float
+    projection_precision_overrides: Optional[dict[str, str]] = None
+    precision_config_name: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -81,6 +83,7 @@ class Result:
     model: str
     tp_size: int
     precision: str
+    precision_config_name: Optional[str]
     scope: str
     batch_size: int
     kv_len: int
@@ -97,6 +100,7 @@ class Result:
     warmup_iters: int
     measure_iters: int
     attention_backend: str
+    projection_precisions: Optional[dict[str, str]]
     workspace_size: int
     workspace_slot_bytes: int
     device_l2_bytes: int
@@ -107,6 +111,15 @@ class Result:
     p80_us: float
     min_us: float
     max_us: float
+
+
+@dataclass
+class MarlinCaptureBuffers:
+    output: object
+    c_tmp: object
+    a_tmp: object
+    empty_dtype: object
+    empty_int32: object
 
 
 def add_repo_python_to_path() -> None:
@@ -205,6 +218,41 @@ def load_model_config(path: Path) -> ModelConfig:
         lora_alpha=int(raw.get("lora_alpha", 16)),
         projections=tuple(parse_projection(item) for item in raw["projections"]),
     )
+
+
+def normalize_projection_name(name: str) -> str:
+    if name == "up":
+        return "gate_up"
+    return name
+
+
+def display_projection_name(name: str) -> str:
+    if name == "gate_up":
+        return "up"
+    return name
+
+
+def load_dynamic_projection_precisions(path: Path, batch_size: int) -> tuple[str, dict[str, str]]:
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    by_batch = raw["projection_precision_by_batch"]
+    key = str(batch_size)
+    if key not in by_batch:
+        raise ValueError(f"{path} does not define projection precision for batch size {batch_size}")
+    assignment = {
+        normalize_projection_name(name): str(precision)
+        for name, precision in by_batch[key].items()
+    }
+    expected = {"qkv", "o", "gate_up", "down"}
+    if set(assignment) != expected:
+        raise ValueError(
+            f"{path} batch {batch_size} defines {sorted(assignment)}, expected {sorted(expected)}"
+        )
+    for precision in assignment.values():
+        if precision not in {"bf16", "qlora"}:
+            raise ValueError(
+                f"{path} batch {batch_size} uses unsupported dynamic precision {precision!r}"
+            )
+    return str(raw.get("name", path.stem)), assignment
 
 
 def make_marlin_quant_config(group_size: int):
@@ -672,24 +720,22 @@ class SyntheticTorchNativeAttnBackend:
             self.value_cache[:, -1].copy_(v.view(self.batch_size, layer.tp_v_head_num, layer.v_head_dim))
 
         use_gqa = layer.tp_q_head_num != layer.tp_k_head_num
-        for req_idx in range(self.batch_size):
-            per_req_query = q_heads[req_idx : req_idx + 1].transpose(0, 1).unsqueeze(0)
-            per_req_key = self.key_cache[req_idx].transpose(0, 1).unsqueeze(0)
-            per_req_value = self.value_cache[req_idx].transpose(0, 1).unsqueeze(0)
-            per_req_out = (
-                scaled_dot_product_attention(
-                    per_req_query,
-                    per_req_key,
-                    per_req_value,
-                    enable_gqa=use_gqa,
-                    scale=layer.scaling,
-                    is_causal=False,
-                )
-                .squeeze(0)
-                .transpose(0, 1)
-            )
-            o_heads[req_idx : req_idx + 1].copy_(per_req_out)
 
+        # This benchmark models fixed-shape decode batches: every request has the
+        # same cached prefix length, so attention should run as one batched SDPA
+        # call rather than per-request launches.
+        batched_query = q_heads.unsqueeze(2)
+        batched_key = self.key_cache.permute(0, 2, 1, 3)
+        batched_value = self.value_cache.permute(0, 2, 1, 3)
+        batched_out = scaled_dot_product_attention(
+            batched_query,
+            batched_key,
+            batched_value,
+            enable_gqa=use_gqa,
+            scale=layer.scaling,
+            is_causal=False,
+        )
+        o_heads.copy_(batched_out.squeeze(2))
         return o
 
 
@@ -790,6 +836,57 @@ class SyntheticDecodeAttention:
 
 
 class TransformerBlockBenchmark:
+    def _cast_layer_modules(self, layer) -> None:
+        for module in (
+            layer.input_layernorm,
+            layer.post_attention_layernorm,
+            layer.self_attn.qkv_proj,
+            layer.self_attn.o_proj,
+            layer.mlp.gate_up_proj,
+            layer.mlp.down_proj,
+        ):
+            module.to(dtype=self.dtype)
+
+    def _resolve_projection_precisions(self) -> dict[str, str]:
+        if self.bench_config.projection_precision_overrides is not None:
+            return dict(self.bench_config.projection_precision_overrides)
+        return {
+            "qkv": self.bench_config.precision,
+            "o": self.bench_config.precision,
+            "gate_up": self.bench_config.precision,
+            "down": self.bench_config.precision,
+        }
+
+    def _build_projection_map(self) -> dict[str, object]:
+        projection_sources = {
+            "qkv": (
+                self.shared_layer.self_attn.qkv_proj,
+                None if self.quantized_layer is None else self.quantized_layer.self_attn.qkv_proj,
+            ),
+            "o": (
+                self.shared_layer.self_attn.o_proj,
+                None if self.quantized_layer is None else self.quantized_layer.self_attn.o_proj,
+            ),
+            "gate_up": (
+                self.shared_layer.mlp.gate_up_proj,
+                None if self.quantized_layer is None else self.quantized_layer.mlp.gate_up_proj,
+            ),
+            "down": (
+                self.shared_layer.mlp.down_proj,
+                None if self.quantized_layer is None else self.quantized_layer.mlp.down_proj,
+            ),
+        }
+        projections: dict[str, object] = {}
+        for name, precision in self.projection_precisions.items():
+            bf16_module, quantized_module = projection_sources[name]
+            if precision == "bf16":
+                projections[name] = bf16_module
+            else:
+                if quantized_module is None:
+                    raise RuntimeError(f"{name} requested {precision} but quantized layer is unavailable")
+                projections[name] = quantized_module
+        return projections
+
     def __init__(self, model_config: ModelConfig, bench_config: BenchmarkConfig):
         add_repo_python_to_path()
         import torch
@@ -819,11 +916,6 @@ class TransformerBlockBenchmark:
         self.dtype = dtype_from_name(model_config.dtype)
         self.model_config = model_config
         self.bench_config = bench_config
-        quant_config = (
-            make_marlin_quant_config(model_config.group_size)
-            if bench_config.precision in {"marlin", "qlora"}
-            else None
-        )
         decoder_cfg = SimpleNamespace(
             hidden_size=model_config.hidden_size,
             intermediate_size=model_config.intermediate_size,
@@ -835,61 +927,67 @@ class TransformerBlockBenchmark:
             rope_theta=model_config.rope_theta,
             rms_norm_eps=model_config.rms_norm_eps,
         )
-        self.layer = Qwen2DecoderLayer(
+        self.shared_layer = Qwen2DecoderLayer(
             config=decoder_cfg,
             layer_id=0,
-            quant_config=quant_config,
-            prefix="synthetic.layer",
+            quant_config=None,
+            prefix="synthetic.layer.bf16",
         ).cuda().eval()
-        for module in (
-            self.layer.input_layernorm,
-            self.layer.post_attention_layernorm,
-            self.layer.self_attn.qkv_proj,
-            self.layer.self_attn.o_proj,
-            self.layer.mlp.gate_up_proj,
-            self.layer.mlp.down_proj,
-        ):
-            module.to(dtype=self.dtype)
+        self._cast_layer_modules(self.shared_layer)
+
+        self.projection_precisions = self._resolve_projection_precisions()
+        needs_marlin_layer = any(
+            precision in {"marlin", "qlora"} for precision in self.projection_precisions.values()
+        )
+        self.quantized_layer = None
+        if needs_marlin_layer:
+            self.quantized_layer = Qwen2DecoderLayer(
+                config=decoder_cfg,
+                layer_id=0,
+                quant_config=make_marlin_quant_config(model_config.group_size),
+                prefix="synthetic.layer.quant",
+            ).cuda().eval()
+            self._cast_layer_modules(self.quantized_layer)
 
         self.attn = SyntheticDecodeAttention(
-            self.layer.self_attn,
+            self.shared_layer.self_attn,
             batch_size=bench_config.batch_size,
             kv_len=bench_config.kv_len,
             dtype=self.dtype,
         )
-        self._init_layer_weights()
+        self._init_layer_weights(self.shared_layer, precision="bf16")
+        if self.quantized_layer is not None:
+            self._init_layer_weights(self.quantized_layer, precision="qlora")
 
-        self.input_layernorm = self.layer.input_layernorm
-        self.post_attention_layernorm = self.layer.post_attention_layernorm
-        self.self_attn = self.layer.self_attn
-        self.mlp = self.layer.mlp
+        self.input_layernorm = self.shared_layer.input_layernorm
+        self.post_attention_layernorm = self.shared_layer.post_attention_layernorm
+        self.self_attn = self.shared_layer.self_attn
+        self.mlp = self.shared_layer.mlp
         self.rotary_emb = self.self_attn.rotary_emb
         self.act_fn = self.mlp.act_fn
 
-        self.projections = {
-            "qkv": self.self_attn.qkv_proj,
-            "o": self.self_attn.o_proj,
-            "gate_up": self.mlp.gate_up_proj,
-            "down": self.mlp.down_proj,
-        }
+        self.projections = self._build_projection_map()
+        self.has_any_qlora_projection = any(
+            precision == "qlora" for precision in self.projection_precisions.values()
+        )
         self.compiled_input_layernorm = compile_callable(
             lambda x: self.input_layernorm(x),
-            bench_config.torch_compile and bench_config.precision == "qlora",
+            bench_config.torch_compile and self.has_any_qlora_projection,
             bench_config.compile_mode,
         )
         self.compiled_post_attention_layernorm = compile_callable(
             lambda x, residual: self.post_attention_layernorm(x, residual),
-            bench_config.torch_compile and bench_config.precision == "qlora",
+            bench_config.torch_compile and self.has_any_qlora_projection,
             bench_config.compile_mode,
         )
         self.compiled_act_fn = compile_callable(
             lambda x: self.act_fn(x),
-            bench_config.torch_compile and bench_config.precision == "qlora",
+            bench_config.torch_compile and self.has_any_qlora_projection,
             bench_config.compile_mode,
         )
         self.compiled_attn_mid = compile_callable(
             lambda qkv: self._attn_mid_from_qkv(qkv),
-            bench_config.torch_compile and bench_config.precision == "qlora",
+            bench_config.torch_compile and self.has_any_qlora_projection,
             bench_config.compile_mode,
         )
         self.column_lora_weights = {}
@@ -900,33 +998,53 @@ class TransformerBlockBenchmark:
         self.row_lora_b_fns = {}
         self.column_base_fns = {}
         self.row_base_fns = {}
+        self.marlin_capture_buffers: dict[str, MarlinCaptureBuffers] = {}
         self.qlora_base_stream = None
         self.qlora_comm_stream = None
-        if bench_config.precision == "qlora":
+        self.qlora_column_a_event = None
+        self.qlora_row_a_event = None
+        self.qlora_base_done_event = None
+        self.qlora_comm_done_event = None
+        if self.has_any_qlora_projection:
             maybe_compile = torch.compile if bench_config.torch_compile else lambda fn, **_: fn
-            self.column_base_fns["qkv"] = maybe_compile(
-                lambda tensor: self.projections["qkv"](tensor)[0],
-                fullgraph=False,
-            )
-            self.column_base_fns["gate_up"] = maybe_compile(
-                lambda tensor: self.projections["gate_up"](tensor)[0],
-                fullgraph=False,
-            )
-            self.row_base_fns["o"] = maybe_compile(
-                lambda tensor: self.projections["o"].quant_method.apply(
-                    self.projections["o"], tensor, None
-                ),
-                fullgraph=False,
-            )
-            self.row_base_fns["down"] = maybe_compile(
-                lambda tensor: self.projections["down"].quant_method.apply(
-                    self.projections["down"], tensor, None
-                ),
-                fullgraph=False,
-            )
+            if bench_config.cuda_graph:
+                for name in ("qkv", "gate_up"):
+                    if self.projection_precisions[name] == "qlora":
+                        self.column_base_fns[name] = (
+                            lambda tensor, name=name: self._run_preallocated_marlin_base(name, tensor)
+                        )
+                for name in ("o", "down"):
+                    if self.projection_precisions[name] == "qlora":
+                        self.row_base_fns[name] = (
+                            lambda tensor, name=name: self._run_preallocated_marlin_base(name, tensor)
+                        )
+            else:
+                maybe_compile_base = torch.compile if bench_config.torch_compile else lambda fn, **_: fn
+                for name in ("qkv", "gate_up"):
+                    if self.projection_precisions[name] == "qlora":
+                        self.column_base_fns[name] = maybe_compile_base(
+                            lambda tensor, name=name: self.projections[name](tensor)[0],
+                            fullgraph=False,
+                        )
+                for name in ("o", "down"):
+                    if self.projection_precisions[name] == "qlora":
+                        self.row_base_fns[name] = maybe_compile_base(
+                            lambda tensor, name=name: self.projections[name].quant_method.apply(
+                                self.projections[name], tensor, None
+                            ),
+                            fullgraph=False,
+                        )
             self.qlora_base_stream = torch.cuda.Stream(device=self.device)
             self.qlora_comm_stream = torch.cuda.Stream(device=self.device)
+            # For CUDA-graph capture we want these to become internal
+            # cross-stream dependencies, not standalone external event nodes.
+            self.qlora_column_a_event = torch.cuda.Event()
+            self.qlora_row_a_event = torch.cuda.Event()
+            self.qlora_base_done_event = torch.cuda.Event()
+            self.qlora_comm_done_event = torch.cuda.Event()
             for projection in model_config.projections:
+                if self.projection_precisions[projection.name] != "qlora":
+                    continue
                 if projection.name in {"qkv", "gate_up"}:
                     weights = make_column_lora_weights(
                         projection,
@@ -1001,14 +1119,28 @@ class TransformerBlockBenchmark:
                 // torch.empty((), dtype=torch.int32).element_size()
             )
             self.flush_buffer = torch.empty((elements,), device=self.device, dtype=torch.int32)
+        if self.has_any_qlora_projection:
+            if bench_config.cuda_graph:
+                for name in ("qkv", "gate_up"):
+                    if self.projection_precisions[name] == "qlora":
+                        self.marlin_capture_buffers[name] = self._allocate_marlin_capture_buffers(
+                            self.projections[name], self.hidden_states.shape[0]
+                        )
+                for name in ("o", "down"):
+                    if self.projection_precisions[name] == "qlora":
+                        input_rows = self.o_inputs.shape[0] if name == "o" else self.down_inputs.shape[0]
+                        self.marlin_capture_buffers[name] = self._allocate_marlin_capture_buffers(
+                            self.projections[name], input_rows
+                        )
+            self._prewarm_qlora_side_streams()
 
-    def _init_layer_weights(self) -> None:
+    def _init_layer_weights(self, layer, *, precision: str) -> None:
         import torch
 
         torch.manual_seed(1234)
         load_linear_module_weight(
-            self.layer.self_attn.qkv_proj,
-            precision=self.bench_config.precision,
+            layer.self_attn.qkv_proj,
+            precision=precision,
             logical_shape=(
                 self.model_config.hidden_size,
                 self.model_config.hidden_size
@@ -1017,14 +1149,14 @@ class TransformerBlockBenchmark:
             group_size=self.model_config.group_size,
         )
         load_linear_module_weight(
-            self.layer.self_attn.o_proj,
-            precision=self.bench_config.precision,
+            layer.self_attn.o_proj,
+            precision=precision,
             logical_shape=(self.model_config.hidden_size, self.model_config.hidden_size),
             group_size=self.model_config.group_size,
         )
         load_linear_module_weight(
-            self.layer.mlp.gate_up_proj,
-            precision=self.bench_config.precision,
+            layer.mlp.gate_up_proj,
+            precision=precision,
             logical_shape=(
                 self.model_config.hidden_size,
                 2 * self.model_config.intermediate_size,
@@ -1032,18 +1164,83 @@ class TransformerBlockBenchmark:
             group_size=self.model_config.group_size,
         )
         load_linear_module_weight(
-            self.layer.mlp.down_proj,
-            precision=self.bench_config.precision,
+            layer.mlp.down_proj,
+            precision=precision,
             logical_shape=(
                 self.model_config.intermediate_size,
                 self.model_config.hidden_size,
             ),
             group_size=self.model_config.group_size,
         )
-        if self.layer.self_attn.qkv_proj.bias is not None:
-            self.layer.self_attn.qkv_proj.bias.data.normal_()
-        self.layer.input_layernorm.weight.data.fill_(1)
-        self.layer.post_attention_layernorm.weight.data.fill_(1)
+        if layer.self_attn.qkv_proj.bias is not None:
+            layer.self_attn.qkv_proj.bias.data.normal_()
+        layer.input_layernorm.weight.data.fill_(1)
+        layer.post_attention_layernorm.weight.data.fill_(1)
+
+    def _prewarm_qlora_side_streams(self) -> None:
+        import torch
+
+        assert self.qlora_base_stream is not None
+        current_stream = torch.cuda.current_stream(self.device)
+        self.qlora_base_stream.wait_stream(current_stream)
+        with torch.cuda.stream(self.qlora_base_stream):
+            if "qkv" in self.column_base_fns:
+                _ = self.column_base_fns["qkv"](self.hidden_states)
+            if "gate_up" in self.column_base_fns:
+                _ = self.column_base_fns["gate_up"](self.hidden_states)
+            if "o" in self.row_base_fns:
+                _ = self.row_base_fns["o"](self.o_inputs)
+            if "down" in self.row_base_fns:
+                _ = self.row_base_fns["down"](self.down_inputs)
+        current_stream.wait_stream(self.qlora_base_stream)
+        torch.cuda.synchronize()
+
+    def _allocate_marlin_capture_buffers(self, module, rows: int) -> MarlinCaptureBuffers:
+        import torch
+
+        g_idx = getattr(module, "g_idx", None)
+        has_act_order = g_idx is not None and g_idx.numel() > 0
+        output_size = getattr(module, "output_size_per_partition", None) or module.output_size
+        input_size = getattr(module, "input_size_per_partition", None) or module.input_size
+        sms = torch.cuda.get_device_properties(self.device).multi_processor_count
+        max_m_block = min(((rows + 15) // 16) * 16, 64)
+        return MarlinCaptureBuffers(
+            output=torch.empty(
+                (rows, output_size),
+                device=self.device,
+                dtype=self.dtype,
+            ),
+            c_tmp=torch.empty(
+                sms * max_m_block * 256,
+                device=self.device,
+                dtype=torch.float32,
+            ),
+            a_tmp=(
+                torch.empty(
+                    (rows, input_size),
+                    device=self.device,
+                    dtype=self.dtype,
+                )
+                if has_act_order
+                else torch.empty(0, device=self.device, dtype=self.dtype)
+            ),
+            empty_dtype=torch.empty(0, device=self.device, dtype=self.dtype),
+            empty_int32=torch.empty(0, device=self.device, dtype=torch.int32),
+        )
+
+    def _run_preallocated_marlin_base(self, name: str, x):
+        module = self.projections[name]
+        buffers = self.marlin_capture_buffers[name]
+        return module.scheme.kernel.apply(
+            module,
+            x,
+            None,
+            output=buffers.output,
+            c_tmp=buffers.c_tmp,
+            a_tmp=buffers.a_tmp,
+            empty_dtype=buffers.empty_dtype,
+            empty_int32=buffers.empty_int32,
+        )
 
     def _run_projection(self, name: str, x, *, forward_batch=None):
         import torch
@@ -1055,31 +1252,36 @@ class TransformerBlockBenchmark:
             out, _ = module(x, forward_batch=forward_batch) if forward_batch is not None else module(x)
             return out
 
-        def row_base_parallel():
-            return module.quant_method.apply(module, x, None)
-
-        if self.bench_config.precision != "qlora":
+        projection_precision = self.projection_precisions[name]
+        if projection_precision != "qlora":
             return base_forward()
 
         current_stream = torch.cuda.current_stream(self.device)
         assert self.qlora_base_stream is not None
         assert self.qlora_comm_stream is not None
+        assert self.qlora_column_a_event is not None
+        assert self.qlora_row_a_event is not None
+        assert self.qlora_base_done_event is not None
+        assert self.qlora_comm_done_event is not None
 
         if name in {"qkv", "gate_up"}:
             lora_a_output = self.column_lora_a_fns[name](x)
-            self.qlora_base_stream.wait_stream(current_stream)
+            self.qlora_column_a_event.record(current_stream)
             with torch.cuda.stream(self.qlora_base_stream):
+                self.qlora_base_stream.wait_event(self.qlora_column_a_event)
                 base_out = call_with_marlin_sm_reserve(
                     lambda: self.column_base_fns[name](x),
                     self.bench_config.two_stream_reserve_sms,
                 )
+                self.qlora_base_done_event.record(self.qlora_base_stream)
             lora_out = self.column_lora_b_fns[name](lora_a_output)
-            current_stream.wait_stream(self.qlora_base_stream)
+            current_stream.wait_event(self.qlora_base_done_event)
             return base_out + lora_out
 
-        self.qlora_base_stream.wait_stream(current_stream)
         lora_a_output = self.row_lora_a_fns[name](x)
+        self.qlora_row_a_event.record(current_stream)
         with torch.cuda.stream(self.qlora_base_stream):
+            self.qlora_base_stream.wait_event(self.qlora_row_a_event)
             output_parallel = call_with_marlin_sm_reserve(
                 lambda: self.row_base_fns[name](x),
                 self.bench_config.two_stream_reserve_sms,
@@ -1089,17 +1291,21 @@ class TransformerBlockBenchmark:
             self.qlora_comm_stream.wait_stream(current_stream)
             with torch.cuda.stream(self.qlora_comm_stream):
                 lora_a_output = tensor_model_parallel_all_reduce(lora_a_output)
+                self.qlora_comm_done_event.record(self.qlora_comm_stream)
 
-            current_stream.wait_stream(self.qlora_comm_stream)
+            current_stream.wait_event(self.qlora_comm_done_event)
             lora_out = self.row_lora_b_fns[name](lora_a_output)
 
             with torch.cuda.stream(self.qlora_base_stream):
-                self.qlora_base_stream.wait_stream(self.qlora_comm_stream)
+                self.qlora_base_stream.wait_event(self.qlora_comm_done_event)
                 output_parallel = tensor_model_parallel_all_reduce(output_parallel)
-            current_stream.wait_stream(self.qlora_base_stream)
+                self.qlora_base_done_event.record(self.qlora_base_stream)
+            current_stream.wait_event(self.qlora_base_done_event)
         else:
             lora_out = self.row_lora_b_fns[name](lora_a_output)
-            current_stream.wait_stream(self.qlora_base_stream)
+            with torch.cuda.stream(self.qlora_base_stream):
+                self.qlora_base_done_event.record(self.qlora_base_stream)
+            current_stream.wait_event(self.qlora_base_done_event)
         return output_parallel + lora_out
 
     def qkv_only(self, x):
@@ -1133,19 +1339,19 @@ class TransformerBlockBenchmark:
         objects: list[object] = []
         if scope == "qkv":
             objects.extend([self.hidden_states, self.projections["qkv"]])
-            if self.bench_config.precision == "qlora":
+            if self.projection_precisions["qkv"] == "qlora":
                 objects.append(self.column_lora_weights.get("qkv"))
         elif scope == "o":
             objects.extend([self.o_inputs, self.projections["o"]])
-            if self.bench_config.precision == "qlora":
+            if self.projection_precisions["o"] == "qlora":
                 objects.append(self.row_lora_weights.get("o"))
         elif scope == "up":
             objects.extend([self.hidden_states, self.projections["gate_up"]])
-            if self.bench_config.precision == "qlora":
+            if self.projection_precisions["gate_up"] == "qlora":
                 objects.append(self.column_lora_weights.get("gate_up"))
         elif scope == "down":
             objects.extend([self.down_inputs, self.projections["down"]])
-            if self.bench_config.precision == "qlora":
+            if self.projection_precisions["down"] == "qlora":
                 objects.append(self.row_lora_weights.get("down"))
         elif scope == "attn":
             objects.extend(
@@ -1166,13 +1372,10 @@ class TransformerBlockBenchmark:
                     self.attn.forward_batch.num_token_non_padded,
                 ]
             )
-            if self.bench_config.precision == "qlora":
-                objects.extend(
-                    [
-                        self.column_lora_weights.get("qkv"),
-                        self.row_lora_weights.get("o"),
-                    ]
-                )
+            if self.projection_precisions["qkv"] == "qlora":
+                objects.append(self.column_lora_weights.get("qkv"))
+            if self.projection_precisions["o"] == "qlora":
+                objects.append(self.row_lora_weights.get("o"))
         elif scope == "mlp":
             objects.extend(
                 [
@@ -1183,13 +1386,10 @@ class TransformerBlockBenchmark:
                     self.projections["down"],
                 ]
             )
-            if self.bench_config.precision == "qlora":
-                objects.extend(
-                    [
-                        self.column_lora_weights.get("gate_up"),
-                        self.row_lora_weights.get("down"),
-                    ]
-                )
+            if self.projection_precisions["gate_up"] == "qlora":
+                objects.append(self.column_lora_weights.get("gate_up"))
+            if self.projection_precisions["down"] == "qlora":
+                objects.append(self.row_lora_weights.get("down"))
         elif scope == "block":
             objects.extend(
                 [
@@ -1213,15 +1413,14 @@ class TransformerBlockBenchmark:
                     self.attn.forward_batch.num_token_non_padded,
                 ]
             )
-            if self.bench_config.precision == "qlora":
-                objects.extend(
-                    [
-                        self.column_lora_weights.get("qkv"),
-                        self.row_lora_weights.get("o"),
-                        self.column_lora_weights.get("gate_up"),
-                        self.row_lora_weights.get("down"),
-                    ]
-                )
+            if self.projection_precisions["qkv"] == "qlora":
+                objects.append(self.column_lora_weights.get("qkv"))
+            if self.projection_precisions["o"] == "qlora":
+                objects.append(self.row_lora_weights.get("o"))
+            if self.projection_precisions["gate_up"] == "qlora":
+                objects.append(self.column_lora_weights.get("gate_up"))
+            if self.projection_precisions["down"] == "qlora":
+                objects.append(self.row_lora_weights.get("down"))
         else:
             raise ValueError(f"Unsupported scope {scope!r}")
         return unique_tensor_nbytes(objects)
@@ -1237,7 +1436,7 @@ class TransformerBlockBenchmark:
         qkv = self._run_projection("qkv", x)
         attn_out = (
             self.compiled_attn_mid(qkv)
-            if self.bench_config.precision == "qlora"
+            if self.has_any_qlora_projection
             else self._attn_mid_from_qkv(qkv)
         )
         return self._run_projection("o", attn_out)
@@ -1245,7 +1444,7 @@ class TransformerBlockBenchmark:
     def attn_scope(self, x):
         hidden = (
             self.compiled_input_layernorm(x)
-            if self.bench_config.precision == "qlora"
+            if self.has_any_qlora_projection
             else self.input_layernorm(x)
         )
         return self.attn_core(hidden)
@@ -1254,7 +1453,7 @@ class TransformerBlockBenchmark:
         gate_up = self._run_projection("gate_up", x)
         hidden = (
             self.compiled_act_fn(gate_up)
-            if self.bench_config.precision == "qlora"
+            if self.has_any_qlora_projection
             else self.act_fn(gate_up)
         )
         return self._run_projection("down", hidden, forward_batch=self.attn.forward_batch)
@@ -1262,7 +1461,7 @@ class TransformerBlockBenchmark:
     def mlp_scope(self, x, residual):
         hidden, _ = (
             self.compiled_post_attention_layernorm(x, residual)
-            if self.bench_config.precision == "qlora"
+            if self.has_any_qlora_projection
             else self.post_attention_layernorm(x, residual)
         )
         return self.mlp_core(hidden)
@@ -1271,13 +1470,13 @@ class TransformerBlockBenchmark:
         residual = x
         hidden = (
             self.compiled_input_layernorm(x)
-            if self.bench_config.precision == "qlora"
+            if self.has_any_qlora_projection
             else self.input_layernorm(x)
         )
         attn_out = self.attn_core(hidden)
         hidden, residual = (
             self.compiled_post_attention_layernorm(attn_out, residual)
-            if self.bench_config.precision == "qlora"
+            if self.has_any_qlora_projection
             else self.post_attention_layernorm(attn_out, residual)
         )
         mlp_out = self.mlp_core(hidden)
@@ -1289,49 +1488,49 @@ class TransformerBlockBenchmark:
             raw = lambda: self.qkv_only(self.hidden_states)
             return (
                 compile_callable(raw, self.bench_config.torch_compile, self.bench_config.compile_mode)
-                if self.bench_config.precision != "qlora"
+                if self.projection_precisions["qkv"] != "qlora"
                 else raw
             )
         if scope == "o":
             raw = lambda: self.o_only(self.o_inputs)
             return (
                 compile_callable(raw, self.bench_config.torch_compile, self.bench_config.compile_mode)
-                if self.bench_config.precision != "qlora"
+                if self.projection_precisions["o"] != "qlora"
                 else raw
             )
         if scope == "up":
             raw = lambda: self.up_only(self.hidden_states)
             return (
                 compile_callable(raw, self.bench_config.torch_compile, self.bench_config.compile_mode)
-                if self.bench_config.precision != "qlora"
+                if self.projection_precisions["gate_up"] != "qlora"
                 else raw
             )
         if scope == "down":
             raw = lambda: self.down_only(self.down_inputs)
             return (
                 compile_callable(raw, self.bench_config.torch_compile, self.bench_config.compile_mode)
-                if self.bench_config.precision != "qlora"
+                if self.projection_precisions["down"] != "qlora"
                 else raw
             )
         if scope == "attn":
             raw = lambda: self.attn_scope(self.hidden_states)
             return (
                 compile_callable(raw, self.bench_config.torch_compile, self.bench_config.compile_mode)
-                if self.bench_config.precision != "qlora"
+                if not self.has_any_qlora_projection
                 else raw
             )
         if scope == "mlp":
             raw = lambda: self.mlp_scope(self.hidden_states, self.residual_states)
             return (
                 compile_callable(raw, self.bench_config.torch_compile, self.bench_config.compile_mode)
-                if self.bench_config.precision != "qlora"
+                if not self.has_any_qlora_projection
                 else raw
             )
         if scope == "block":
             raw = lambda: self.block_scope(self.hidden_states)
             return (
                 compile_callable(raw, self.bench_config.torch_compile, self.bench_config.compile_mode)
-                if self.bench_config.precision != "qlora"
+                if not self.has_any_qlora_projection
                 else raw
             )
         raise ValueError(f"Unsupported scope {scope!r}")
@@ -1350,6 +1549,7 @@ class TransformerBlockBenchmark:
             model=self.model_config.model,
             tp_size=self.world_size,
             precision=self.bench_config.precision,
+            precision_config_name=self.bench_config.precision_config_name,
             scope=self.bench_config.scope,
             batch_size=self.bench_config.batch_size,
             kv_len=self.bench_config.kv_len,
@@ -1366,6 +1566,10 @@ class TransformerBlockBenchmark:
             warmup_iters=self.bench_config.warmup_iters,
             measure_iters=self.bench_config.measure_iters,
             attention_backend="torch_native",
+            projection_precisions={
+                display_projection_name(name): precision
+                for name, precision in self.projection_precisions.items()
+            },
             workspace_size=workspace_size,
             workspace_slot_bytes=workspace_slot_bytes,
             device_l2_bytes=self.device_l2_bytes,
@@ -1545,6 +1749,8 @@ def run_nsys_profile(args: argparse.Namespace) -> None:
         str(args.output),
         "--profile-nsys-internal",
     ]
+    if args.precision_config is not None:
+        cmd.extend(["--precision-config", str(args.precision_config)])
     if args.no_cuda_graph:
         cmd.append("--no-cuda-graph")
     if args.no_torch_compile:
@@ -1576,7 +1782,8 @@ def run_nsys_profile(args: argparse.Namespace) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model-config", type=Path, required=True)
-    parser.add_argument("--precision", choices=["bf16", "marlin", "qlora"], required=True)
+    parser.add_argument("--precision", choices=["bf16", "marlin", "qlora", "dynamic"], required=True)
+    parser.add_argument("--precision-config", type=Path)
     parser.add_argument(
         "--scope",
         choices=["block", "attn", "mlp", "qkv", "o", "up", "down"],
@@ -1609,6 +1816,21 @@ def main() -> None:
         run_nsys_profile(args)
         return
 
+    if args.precision == "dynamic":
+        if args.precision_config is None:
+            raise ValueError("--precision dynamic requires --precision-config")
+        if args.scope != "block":
+            raise ValueError("dynamic precision is currently supported only for --scope block")
+        precision_config_name, projection_precision_overrides = load_dynamic_projection_precisions(
+            args.precision_config,
+            args.batch_size,
+        )
+    else:
+        if args.precision_config is not None:
+            raise ValueError("--precision-config is only valid with --precision dynamic")
+        precision_config_name = None
+        projection_precision_overrides = None
+
     model_config = load_model_config(args.model_config)
     bench_config = BenchmarkConfig(
         precision=args.precision,
@@ -1626,6 +1848,8 @@ def main() -> None:
         cache_mode=args.cache_mode,
         workspace_size=args.workspace_size,
         workspace_l2_factor=args.workspace_l2_factor,
+        projection_precision_overrides=projection_precision_overrides,
+        precision_config_name=precision_config_name,
     )
     bench = TransformerBlockBenchmark(model_config, bench_config)
     result = bench.measure(cuda_profiler_range=args.profile_nsys_internal)

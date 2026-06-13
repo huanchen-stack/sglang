@@ -1,0 +1,10 @@
+{
+  "batch_size": 128,
+  "bf16_tp4_us": 523.8560140132904,
+  "qlora_tp1_us": 1473.9999771118164,
+  "qlora_dp_equiv_us": 144.3839967250824,
+  "dp_lookup_batch": 32,
+  "qlora_tp4_us": 620.3519999980927,
+  "dp_equiv_speedup_vs_bf16_tp4": 3.62821383183311,
+  "tp4_speedup_vs_bf16_tp4": 0.8444496253980016
+}
