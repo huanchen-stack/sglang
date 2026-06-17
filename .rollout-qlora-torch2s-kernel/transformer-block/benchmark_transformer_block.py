@@ -425,7 +425,7 @@ def capture_cuda_graph(fn: Callable[[], object]):
     start_event = torch.cuda.Event(enable_timing=True, external=True)
     end_event = torch.cuda.Event(enable_timing=True, external=True)
     torch.cuda.synchronize()
-    with torch.cuda.graph(graph):
+    with torch.no_grad(), torch.cuda.graph(graph):
         start_event.record()
         holder["out"] = fn()
         end_event.record()
@@ -1595,6 +1595,7 @@ class TransformerBlockBenchmark:
         callables = [bench.measured_callable() for bench in benches]
         for bench, fn in zip(benches, callables):
             prewarm_activation(bench.scope_input_tensor(), fn)
+            prewarm_activation(bench.scope_input_tensor(), fn)
 
         graphs: list[object | None] = []
         start_events: list[object | None] = []
@@ -1808,7 +1809,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--no-cuda-graph", action="store_true")
     parser.add_argument("--no-torch-compile", action="store_true")
     parser.add_argument("--compile-mode", default="default")
-    parser.add_argument("--two-stream-reserve-sms", type=int, default=1)
+    # With the no-base-wait schedule, Marlin already overlaps LoRA work; reserving
+    # one SM did not improve the workspace CUDA-graph block benchmark.
+    parser.add_argument("--two-stream-reserve-sms", type=int, default=0)
     parser.add_argument("--two-stream-layout", choices=["flipped", "standard"], default="flipped")
     parser.add_argument("--no-qlora-base-wait-lora-a", action="store_true")
     parser.add_argument("--profile-nsys", action="store_true")
